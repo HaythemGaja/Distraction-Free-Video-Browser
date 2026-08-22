@@ -1,12 +1,13 @@
 {
   "manifest_version": 3,
-  "name": "CinemaStream Pro - Video Suite",
-  "version": "1.0.0",
-  "description": "Distraction-free video suite with ad-skipping, FB panel controls, Watch Later queue, continuous PiP, and hotkeys.",
+  "name": "CinemaStream Pro - Video & Feed Suite",
+  "version": "1.3.0",
+  "description": "Distraction-free video suite with persistent speed memory, instant ad-skipping, FB Purity filters, panel controls, and Watch Later.",
   "permissions": [
     "storage",
     "activeTab",
-    "scripting"
+    "scripting",
+    "contextMenus"
   ],
   "host_permissions": [
     "*://*.facebook.com/*",
