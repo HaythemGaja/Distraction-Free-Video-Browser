@@ -1,0 +1,31 @@
+{
+  "manifest_version": 3,
+  "name": "CinemaStream Pro - Video Suite",
+  "version": "1.0.0",
+  "description": "Distraction-free video suite with ad-skipping, FB panel controls, Watch Later queue, continuous PiP, and hotkeys.",
+  "permissions": [
+    "storage",
+    "activeTab",
+    "scripting"
+  ],
+  "host_permissions": [
+    "*://*.facebook.com/*",
+    "*://*.youtube.com/*",
+    "*://*.tiktok.com/*",
+    "<all_urls>"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"],
+      "run_at": "document_end"
+    }
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "CinemaStream Pro"
+  }
+}
