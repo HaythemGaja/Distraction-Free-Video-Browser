@@ -1,5 +1,4 @@
 (function() {
-    // Default Settings
     let autoNextEnabled = true;
     let autoUnmuteEnabled = true;
     let persistentSpeed = 1.0;
@@ -20,12 +19,12 @@
     let vocalFilter = null;
     let connectedVideo = null;
 
-    // Track User Interaction
+    // User Interaction Tracker for Safe Unmuting
     ['click', 'keydown', 'pointerdown', 'touchstart'].forEach(evt => {
         window.addEventListener(evt, () => { hasUserInteracted = true; }, { once: true, capture: true });
     });
 
-    // Load Settings
+    // Multi-Storage Loader
     function loadAllSettings(callback) {
         const keys = [
             'cs_auto_next', 'cs_auto_unmute', 'cs_playback_speed', 'cs_global_volume',
@@ -73,9 +72,7 @@
         window.__sfToastTimer = setTimeout(() => { if (toast) toast.remove(); }, 1800);
     }
 
-    // =======================================================
-    // DEEP VIDEO SCANNER (Standard DOM + Shadow DOM)
-    // =======================================================
+    // Deep Video Scanner (Standard DOM + Shadow DOM)
     function getAllVideos(root = document) {
         let vids = Array.from(root.querySelectorAll('video'));
         const allElements = root.querySelectorAll('*');
@@ -93,12 +90,32 @@
     }
 
     // =======================================================
-    // 1. SPEED & VOLUME PERSISTENCE ENGINE
+    // SMART AD CLASSIFIER (PREVENTS MUTE/UNMUTE FLICKERING)
+    // =======================================================
+    function isAdVideo(v) {
+        if (!v) return false;
+        // YouTube ad overlay check
+        if (document.querySelector('.ad-showing, .ytp-ad-player-overlay')) return true;
+        
+        // Third-party VAST/IMA/JWPlayer ad parent check
+        const adContainer = v.closest('.ad-container, [class*="video-ad"], [id*="player_ad"], [class*="vast-"], [class*="ima-"], .jw-ad, .vjs-ad');
+        if (adContainer) return true;
+
+        // Ad stream URL patterns
+        const src = (v.currentSrc || v.src || '').toLowerCase();
+        if (src.includes('/ad/') || src.includes('doubleclick') || src.includes('googleads') || src.includes('vast')) {
+            return true;
+        }
+        return false;
+    }
+
+    // =======================================================
+    // 1. PERSISTENT SPEED & VOLUME
     // =======================================================
     function enforcePersistentMedia() {
         const vids = getAllVideos();
         vids.forEach(v => {
-            if (!document.querySelector('.ad-showing')) {
+            if (!isAdVideo(v)) {
                 if (v.playbackRate !== persistentSpeed) v.playbackRate = persistentSpeed;
                 if (Math.abs(v.volume - globalVolume) > 0.05) v.volume = globalVolume;
             }
@@ -106,7 +123,7 @@
     }
 
     document.addEventListener('play', (e) => {
-        if (e.target && e.target.tagName === 'VIDEO' && !document.querySelector('.ad-showing')) {
+        if (e.target && e.target.tagName === 'VIDEO' && !isAdVideo(e.target)) {
             e.target.playbackRate = persistentSpeed;
             e.target.volume = globalVolume;
             if (!location.hostname.includes('tiktok.com')) {
@@ -116,7 +133,7 @@
     }, true);
 
     document.addEventListener('loadedmetadata', (e) => {
-        if (e.target && e.target.tagName === 'VIDEO' && !document.querySelector('.ad-showing')) {
+        if (e.target && e.target.tagName === 'VIDEO' && !isAdVideo(e.target)) {
             e.target.playbackRate = persistentSpeed;
             e.target.volume = globalVolume;
             if (forceHighResEnabled && location.hostname.includes('youtube.com')) {
@@ -125,7 +142,6 @@
         }
     }, true);
 
-    // Watch for dynamically loaded video players (JWPlayer, VideoJS, Plyr embeds)
     const dynamicObserver = new MutationObserver(() => {
         const vids = getAllVideos();
         if (vids.length > 0) {
@@ -181,7 +197,7 @@
     }, true);
 
     // =======================================================
-    // 3. FRAME-BY-FRAME STEPPER
+    // 3. FRAME STEPPER & HD SCREENSHOT
     // =======================================================
     function stepFrame(forward = true) {
         const v = getActiveVideo();
@@ -192,9 +208,6 @@
         showToast(`🎞️ Frame: ${v.currentTime.toFixed(2)}s`, '#00f2fe');
     }
 
-    // =======================================================
-    // 4. TIMESTAMPED HD SCREENSHOT
-    // =======================================================
     function captureScreenshot() {
         const v = getActiveVideo();
         if (!v || v.readyState < 2) return showToast('⚠️ No active video frame', '#ff5f56');
@@ -221,7 +234,7 @@
     }
 
     // =======================================================
-    // 5. AUDIO EQUALIZER (WEB AUDIO API)
+    // 4. AUDIO EQUALIZER (WEB AUDIO API)
     // =======================================================
     function initAudioEqualizer(video) {
         if (!hasUserInteracted) return;
@@ -289,7 +302,7 @@
     }
 
     // =======================================================
-    // 6. AMBIENT GLOW BACKLIGHT
+    // 5. AMBIENT GLOW & MAX RESOLUTION
     // =======================================================
     function applyAmbientGlow() {
         let styleEl = document.getElementById('streamflow-glow-style');
@@ -310,9 +323,6 @@
         `;
     }
 
-    // =======================================================
-    // 7. YOUTUBE RESOLUTION LOCKER
-    // =======================================================
     function forceYouTubeMaxResolution() {
         try {
             const player = document.getElementById('movie_player') || document.querySelector('.html5-video-player');
@@ -328,18 +338,14 @@
     }
 
     // =======================================================
-    // 8. ON-VIDEO FLOATING MINI-HUD (WORKS IN ALL EMBEDS)
+    // 6. ON-VIDEO FLOATING MINI-HUD
     // =======================================================
     function injectMiniHud() {
-        if (!miniHudEnabled) {
-            document.querySelectorAll('.streamflow-mini-hud').forEach(el => el.remove());
-            return;
-        }
-
-        if (location.hostname.includes('tiktok.com')) return;
+        if (!miniHudEnabled || location.hostname.includes('tiktok.com')) return;
 
         const vids = getAllVideos();
         vids.forEach(vid => {
+            if (isAdVideo(vid)) return;
             const container = vid.parentElement;
             if (!container || container.querySelector('.streamflow-mini-hud')) return;
 
@@ -408,15 +414,16 @@
     }
 
     // =======================================================
-    // 9. INSTANT AD-SKIPPER (<150ms Action)
+    // 7. ROBUST AD-SKIPPER (<150ms Action)
     // =======================================================
     setInterval(() => {
         const skipSelectors = [
             '.ytp-ad-skip-button', '.ytp-ad-skip-button-modern', '.ytp-skip-ad-button', 
             'button.ytp-ad-skip-button-modern', '.ytp-ad-skip-button-container button',
             '[id^="skip-button"] button', '[aria-label*="Skip Ad" i]', '.videoAdUiSkipButton', 
-            '.ytp-ad-overlay-close-button', '.ytp-ad-preview-container', '.jw-skip'
+            '.ytp-ad-overlay-close-button', '.ytp-ad-preview-container', '.jw-skip', '.vast-skip-button'
         ];
+        
         skipSelectors.forEach(s => {
             document.querySelectorAll(s).forEach(btn => {
                 try {
@@ -426,22 +433,23 @@
             });
         });
         
-        const adShowing = document.querySelector('.ad-showing, .ytp-ad-player-overlay');
         const vids = getAllVideos();
-        if (adShowing) {
-            vids.forEach(v => { v.playbackRate = 16.0; v.muted = true; });
-        } else {
-            vids.forEach(v => {
-                if (v.playbackRate === 16.0) {
-                    v.playbackRate = persistentSpeed;
-                    v.muted = false;
-                }
-            });
-        }
+        vids.forEach(v => {
+            if (isAdVideo(v)) {
+                v.playbackRate = 16.0;
+                v.muted = true;
+                v.dataset.sfIsAd = "true";
+            } else if (v.dataset.sfIsAd === "true") {
+                delete v.dataset.sfIsAd;
+                v.playbackRate = persistentSpeed;
+                v.muted = false;
+                v.volume = globalVolume;
+            }
+        });
     }, 150);
 
     // =======================================================
-    // 10. SAFE AUTO-UNMUTE
+    // 8. SAFE AUTO-UNMUTE (NEVER FIGHTS AD SKIPPER)
     // =======================================================
     setInterval(() => {
         if (!autoUnmuteEnabled) return;
@@ -450,25 +458,23 @@
 
         const vids = getAllVideos();
         vids.forEach(v => {
-            if (v.muted && !document.querySelector('.ad-showing')) {
+            if (!isAdVideo(v) && !v.dataset.sfIsAd && v.muted) {
                 try {
                     v.muted = false;
+                    v.volume = globalVolume;
                 } catch(e) {}
             }
         });
-        document.querySelectorAll('[aria-label*="unmute" i], [aria-label*="Unmute" i], .jw-icon-volume').forEach(b => {
-            try { b.click(); } catch(e) {}
-        });
-    }, 800);
+    }, 1000);
 
     // =======================================================
-    // 11. CONTINUOUS PIP & AUTO-NEXT
+    // 9. CONTINUOUS PIP & AUTO-NEXT
     // =======================================================
     document.addEventListener('ended', async (e) => {
         if (!autoNextEnabled) return;
-        if (e.target && e.target.tagName === 'VIDEO') {
+        if (e.target && e.target.tagName === 'VIDEO' && !isAdVideo(e.target)) {
             const wasInPiP = document.pictureInPictureElement === e.target;
-            const vids = getAllVideos();
+            const vids = getAllVideos().filter(v => !isAdVideo(v));
             const currentIdx = vids.indexOf(e.target);
 
             if (currentIdx !== -1 && currentIdx + 1 < vids.length) {
@@ -480,15 +486,6 @@
                     nextVid.volume = globalVolume;
                     try {
                         await nextVid.play();
-                        const userActive = (navigator.userActivation && navigator.userActivation.hasBeenActive) || hasUserInteracted;
-                        if (userActive) {
-                            try {
-                                nextVid.muted = false;
-                            } catch(unmuteErr) {
-                                const fbUnmute = document.querySelector('[aria-label*="unmute" i], [aria-label*="Unmute" i]');
-                                if (fbUnmute) fbUnmute.click();
-                            }
-                        }
                         if (wasInPiP) await nextVid.requestPictureInPicture();
                     } catch(playErr) {}
                 }, 700);
@@ -497,7 +494,7 @@
     }, true);
 
     // =======================================================
-    // 12. KEYBOARD SHORTCUTS
+    // 10. KEYBOARD SHORTCUTS
     // =======================================================
     window.addEventListener('keydown', (e) => {
         if (['INPUT', 'TEXTAREA'].includes(document.activeElement.tagName) || document.activeElement.isContentEditable) return;
@@ -580,29 +577,36 @@
     });
 
     // =======================================================
-    // 13. MESSAGE HANDLERS FROM POPUP
+    // 11. LIVE MEDIA STATE BRIDGE (FOR POPUP GMC INTERFACE)
     // =======================================================
     chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         const v = getActiveVideo();
 
-        if (msg.action === 'GET_METADATA') {
-            if (!v && window.self !== window.top) return; // Only respond if frame has video or is top
+        if (msg.action === 'GET_MEDIA_STATUS') {
+            if (!v && window.self !== window.top) return;
 
-            let u = window.top.location.href;
-            let t = document.title || 'Saved Video';
-            let s = location.hostname.replace('www.', '').split('.')[0];
+            let title = document.title || 'Video Player';
+            const yt = document.querySelector('h1.ytd-watch-metadata, #title h1');
+            if (yt && yt.innerText) title = yt.innerText.trim();
 
-            if (location.hostname.includes('youtube.com')) {
-                s = 'YouTube';
-                const yt = document.querySelector('h1.ytd-watch-metadata, #title h1, h1.title');
-                if (yt && yt.innerText) t = yt.innerText.trim();
-            } else if (location.hostname.includes('facebook.com')) {
-                s = 'Facebook';
-            } else if (location.hostname.includes('hentaihaven')) {
-                s = 'HentaiHaven';
-            }
-
-            sendResponse({ url: u, title: t, site: s });
+            sendResponse({
+                url: window.top.location.href,
+                hostname: location.hostname.replace('www.', ''),
+                title: title,
+                paused: v ? v.paused : true,
+                currentTime: v ? v.currentTime : 0,
+                duration: v ? (v.duration || 0) : 0,
+                volume: globalVolume,
+                muted: v ? v.muted : false,
+                speed: persistentSpeed,
+                hasVideo: !!v
+            });
+        } else if (msg.action === 'TOGGLE_PLAY') {
+            if (v) v.paused ? v.play() : v.pause();
+        } else if (msg.action === 'SEEK_OFFSET') {
+            if (v) v.currentTime += msg.offset;
+        } else if (msg.action === 'SEEK_EXACT') {
+            if (v) v.currentTime = msg.time;
         } else if (msg.action === 'UPDATE_SETTINGS') {
             autoNextEnabled = msg.settings.autoNextEnabled;
             autoUnmuteEnabled = msg.settings.autoUnmuteEnabled;
