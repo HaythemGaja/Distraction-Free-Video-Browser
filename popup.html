@@ -54,7 +54,7 @@
         .toggle-btn.on { background: var(--accent-green) !important; color: #000 !important; }
         .toggle-btn.off { background: #33384a !important; color: #8a92a6 !important; }
 
-        .hotkeys-box { font-size: 10px; color: var(--text-sub); display: flex; flex-direction: column; gap: 3px; line-height: 1.4; }
+        .hotkeys-box { font-size: 10px; color: var(--text-sub); display: flex; flex-direction: column; gap: 4px; line-height: 1.4; }
         .hotkeys-box b { color: #fff; }
 
         /* Watch Later */
@@ -89,8 +89,16 @@
         </div>
 
         <div class="section">
-            <div class="section-title">⚡ Playback & Enhancement</div>
+            <div class="section-title">⚡ Global Playback (All Sites)</div>
+            
+            <!-- Global Volume Slider -->
             <div class="row">
+                <span>Global Volume:</span>
+                <span id="volume-val" style="color:var(--accent-cyan); font-weight:bold;">100%</span>
+            </div>
+            <input type="range" id="volume-slider" min="0" max="100" step="5" value="100" style="width:100%; accent-color:var(--accent-cyan);">
+
+            <div class="row" style="margin-top:4px;">
                 <span>Default Speed:</span>
                 <select id="speed-select" style="color:var(--accent-cyan);">
                     <option value="0.5">0.5x</option>
@@ -108,7 +116,7 @@
                 <span>Audio EQ Preset:</span>
                 <select id="eq-select" style="color:var(--accent-gold);">
                     <option value="flat" selected>Flat (Default)</option>
-                    <option value="vocal">Vocal Clarity (Podcasts)</option>
+                    <option value="vocal">Vocal Clarity (Speech)</option>
                     <option value="bass">Bass Boost (Music)</option>
                     <option value="night">Night Mode (Normalize)</option>
                 </select>
@@ -128,7 +136,7 @@
         </div>
     </div>
 
-    <!-- TAB 2: TOOLS & A-B LOOP -->
+    <!-- TAB 2: TOOLS & SHORTCUTS GUIDE -->
     <div id="tab-tools" class="tab-content">
         <div class="section">
             <div class="section-title">🔁 A-B Repeat Looper</div>
@@ -150,12 +158,15 @@
         <div class="section">
             <div class="section-title">⌨️ Keyboard Shortcuts Guide</div>
             <div class="hotkeys-box">
-                <div><b>[ / ]</b> : Set Loop Point A / B | <b>\</b> : Clear Loop</div>
+                <div><b>R</b> : Reset Speed to 1.0x (Normal)</div>
+                <div><b>M</b> : Mute / Unmute Toggle</div>
+                <div><b>+ / -</b> : Volume Up / Down (Saved Globally)</div>
+                <div><b>Shift + / -</b> : Speed Up / Down (Saved to Memory)</div>
+                <div><b>[ / ]</b> : Loop Point A / B | <b>\</b> : Clear Loop</div>
                 <div><b>, / .</b> : Frame Step Back / Forward</div>
                 <div><b>S</b> : HD Screenshot Capture</div>
-                <div><b>Shift + / -</b> : Speed Up / Down (Saved)</div>
-                <div><b>+ / -</b> : Volume Up / Down (10% steps)</div>
-                <div><b>Space</b> : Play/Pause | <b>F</b> : Fullscreen | <b>M</b> : Mute</div>
+                <div><b>Space</b> : Play / Pause | <b>F</b> : Fullscreen</div>
+                <div><b>← / →</b> : Skip -10s / +10s (Volume Untouched)</div>
             </div>
         </div>
     </div>

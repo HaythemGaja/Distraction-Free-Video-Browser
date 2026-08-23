@@ -13,15 +13,19 @@ document.addEventListener('DOMContentLoaded', () => {
     let autoNextEnabled = true;
     let autoUnmuteEnabled = true;
     let persistentSpeed = 1.0;
+    let globalVolume = 1.0;
     let ambientGlowEnabled = false;
     let miniHudEnabled = true;
     let currentEqPreset = 'flat';
     let forceHighResEnabled = true;
     let watchLaterList = [];
 
-    // Load from Both Local and Sync Storage
+    const volumeSlider = document.getElementById('volume-slider');
+    const volumeVal = document.getElementById('volume-val');
+
+    // Load from Multi-Storage
     const storageKeys = [
-        'cs_auto_next', 'cs_auto_unmute', 'cs_playback_speed',
+        'cs_auto_next', 'cs_auto_unmute', 'cs_playback_speed', 'cs_global_volume',
         'cs_ambient_glow', 'cs_mini_hud', 'cs_eq_preset', 'cs_force_high_res',
         'cs_watch_later'
     ];
@@ -32,6 +36,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (data.cs_auto_next !== undefined) autoNextEnabled = data.cs_auto_next;
             if (data.cs_auto_unmute !== undefined) autoUnmuteEnabled = data.cs_auto_unmute;
             if (data.cs_playback_speed) persistentSpeed = parseFloat(data.cs_playback_speed);
+            if (data.cs_global_volume !== undefined) globalVolume = parseFloat(data.cs_global_volume);
             if (data.cs_ambient_glow !== undefined) ambientGlowEnabled = data.cs_ambient_glow;
             if (data.cs_mini_hud !== undefined) miniHudEnabled = data.cs_mini_hud;
             if (data.cs_eq_preset) currentEqPreset = data.cs_eq_preset;
@@ -43,18 +48,18 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    function saveAllSettings() {
+    function saveSettings() {
         const settingsObj = {
             cs_auto_next: autoNextEnabled,
             cs_auto_unmute: autoUnmuteEnabled,
             cs_playback_speed: persistentSpeed,
+            cs_global_volume: globalVolume,
             cs_ambient_glow: ambientGlowEnabled,
             cs_mini_hud: miniHudEnabled,
             cs_eq_preset: currentEqPreset,
             cs_force_high_res: forceHighResEnabled
         };
 
-        // Write to both local memory and cloud sync
         chrome.storage.local.set(settingsObj);
         chrome.storage.sync.set(settingsObj);
 
@@ -64,8 +69,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     action: 'UPDATE_SETTINGS',
                     settings: {
                         autoNextEnabled, autoUnmuteEnabled, persistentSpeed,
-                        ambientGlowEnabled, miniHudEnabled, eqPreset: currentEqPreset,
-                        forceHighResEnabled
+                        globalVolume, ambientGlowEnabled, miniHudEnabled,
+                        eqPreset: currentEqPreset, forceHighResEnabled
                     }
                 }).catch(() => {});
             }
@@ -78,6 +83,9 @@ document.addEventListener('DOMContentLoaded', () => {
         setupToggle('toggle-minihud', miniHudEnabled);
         document.getElementById('speed-select').value = persistentSpeed.toString();
         document.getElementById('eq-select').value = currentEqPreset;
+        
+        volumeSlider.value = Math.round(globalVolume * 100);
+        volumeVal.innerText = `${Math.round(globalVolume * 100)}%`;
     }
 
     function setupToggle(btnId, val) {
@@ -87,36 +95,44 @@ document.addEventListener('DOMContentLoaded', () => {
         btn.className = 'toggle-btn ' + (val ? 'on' : 'off');
     }
 
+    // Global Volume Slider Listener
+    volumeSlider.addEventListener('input', (e) => {
+        const val = parseInt(e.target.value);
+        globalVolume = val / 100;
+        volumeVal.innerText = `${val}%`;
+        saveSettings();
+    });
+
     // Toggle Handlers
     document.getElementById('toggle-autonext').addEventListener('click', () => {
         autoNextEnabled = !autoNextEnabled;
         syncUI();
-        saveAllSettings();
+        saveSettings();
     });
 
     document.getElementById('toggle-ambient').addEventListener('click', () => {
         ambientGlowEnabled = !ambientGlowEnabled;
         syncUI();
-        saveAllSettings();
+        saveSettings();
     });
 
     document.getElementById('toggle-minihud').addEventListener('click', () => {
         miniHudEnabled = !miniHudEnabled;
         syncUI();
-        saveAllSettings();
+        saveSettings();
     });
 
     document.getElementById('speed-select').addEventListener('change', (e) => {
         persistentSpeed = parseFloat(e.target.value);
-        saveAllSettings();
+        saveSettings();
     });
 
     document.getElementById('eq-select').addEventListener('change', (e) => {
         currentEqPreset = e.target.value;
-        saveAllSettings();
+        saveSettings();
     });
 
-    // Action Triggers to Active Tab
+    // Action Triggers
     const sendTabAction = (action) => {
         chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
             if (tabs[0]) chrome.tabs.sendMessage(tabs[0].id, { action }).catch(() => {});
@@ -134,7 +150,7 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('btn-frame-back').addEventListener('click', () => sendTabAction('STEP_FRAME_BACK'));
     document.getElementById('btn-frame-fwd').addEventListener('click', () => sendTabAction('STEP_FRAME_FWD'));
 
-    // 3. Watch Later Queue
+    // Watch Later Queue
     function renderWatchLater() {
         document.getElementById('wl-count').innerText = watchLaterList.length;
         chrome.runtime.sendMessage({ type: 'UPDATE_BADGE', count: watchLaterList.length });

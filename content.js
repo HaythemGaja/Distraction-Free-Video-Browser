@@ -3,7 +3,7 @@
     let autoNextEnabled = true;
     let autoUnmuteEnabled = true;
     let persistentSpeed = 1.0;
-    let savedVolume = 1.0;
+    let globalVolume = 1.0;
     let ambientGlowEnabled = false;
     let miniHudEnabled = true;
     let currentEqPreset = 'flat';
@@ -20,7 +20,7 @@
     let vocalFilter = null;
     let connectedVideo = null;
 
-    // Track User Interaction for Safe Audio Autoplay per Chrome Policy
+    // Interaction Listener for Chrome Autoplay Unmute
     ['click', 'keydown', 'pointerdown', 'touchstart'].forEach(evt => {
         window.addEventListener(evt, () => { hasUserInteracted = true; }, { once: true, capture: true });
     });
@@ -28,18 +28,17 @@
     // Helper: Safe Multi-Storage Loader
     function loadAllSettings(callback) {
         const keys = [
-            'cs_auto_next', 'cs_auto_unmute', 'cs_playback_speed', 'cs_saved_volume',
+            'cs_auto_next', 'cs_auto_unmute', 'cs_playback_speed', 'cs_global_volume',
             'cs_ambient_glow', 'cs_mini_hud', 'cs_eq_preset', 'cs_force_high_res'
         ];
         
-        // Try local storage first (failsafe offline), fallback to sync
         chrome.storage.local.get(keys, (localData) => {
             chrome.storage.sync.get(keys, (syncData) => {
                 const data = Object.assign({}, syncData, localData);
                 if (data.cs_auto_next !== undefined) autoNextEnabled = data.cs_auto_next;
                 if (data.cs_auto_unmute !== undefined) autoUnmuteEnabled = data.cs_auto_unmute;
                 if (data.cs_playback_speed) persistentSpeed = parseFloat(data.cs_playback_speed);
-                if (data.cs_saved_volume !== undefined) savedVolume = parseFloat(data.cs_saved_volume);
+                if (data.cs_global_volume !== undefined) globalVolume = parseFloat(data.cs_global_volume);
                 if (data.cs_ambient_glow !== undefined) ambientGlowEnabled = data.cs_ambient_glow;
                 if (data.cs_mini_hud !== undefined) miniHudEnabled = data.cs_mini_hud;
                 if (data.cs_eq_preset) currentEqPreset = data.cs_eq_preset;
@@ -50,7 +49,6 @@
         });
     }
 
-    // Helper: Save Settings to Both Local and Sync Storage
     function saveSetting(key, val) {
         const obj = { [key]: val };
         chrome.storage.local.set(obj);
@@ -82,14 +80,13 @@
     }
 
     // =======================================================
-    // 1. SPEED & VOLUME PERSISTENCE ENGINE
+    // 1. GLOBAL SPEED & VOLUME ENFORCEMENT
     // =======================================================
     function enforcePersistentMedia() {
         document.querySelectorAll('video').forEach(v => {
             if (!document.querySelector('.ad-showing')) {
-                if (v.playbackRate !== persistentSpeed) {
-                    v.playbackRate = persistentSpeed;
-                }
+                if (v.playbackRate !== persistentSpeed) v.playbackRate = persistentSpeed;
+                if (Math.abs(v.volume - globalVolume) > 0.05) v.volume = globalVolume;
             }
         });
     }
@@ -97,6 +94,7 @@
     document.addEventListener('play', (e) => {
         if (e.target && e.target.tagName === 'VIDEO' && !document.querySelector('.ad-showing')) {
             e.target.playbackRate = persistentSpeed;
+            e.target.volume = globalVolume;
             initAudioEqualizer(e.target);
         }
     }, true);
@@ -104,6 +102,7 @@
     document.addEventListener('loadedmetadata', (e) => {
         if (e.target && e.target.tagName === 'VIDEO' && !document.querySelector('.ad-showing')) {
             e.target.playbackRate = persistentSpeed;
+            e.target.volume = globalVolume;
             if (forceHighResEnabled && location.hostname.includes('youtube.com')) {
                 forceYouTubeMaxResolution();
             }
@@ -303,7 +302,7 @@
     }
 
     // =======================================================
-    // 8. ON-VIDEO FLOATING MINI-HUD (NO VOLUME OVERRIDE ON FORWARD)
+    // 8. ON-VIDEO FLOATING MINI-HUD
     // =======================================================
     function injectMiniHud() {
         if (!miniHudEnabled) {
@@ -352,7 +351,6 @@
                 showToast(`⚡ Speed: ${persistentSpeed}x`);
             });
 
-            // Forward +10s (WITHOUT touching or changing volume)
             hud.querySelector('.sf-fwd-btn').addEventListener('click', (e) => {
                 e.stopPropagation();
                 vid.currentTime += 10;
@@ -451,6 +449,7 @@
                 
                 setTimeout(async () => {
                     nextVid.playbackRate = persistentSpeed;
+                    nextVid.volume = globalVolume;
                     try {
                         await nextVid.play();
                         const userActive = (navigator.userActivation && navigator.userActivation.hasBeenActive) || hasUserInteracted;
@@ -470,15 +469,29 @@
     }, true);
 
     // =======================================================
-    // 12. KEYBOARD SHORTCUTS (NO VOLUME OVERRIDE ON ARROW RIGHT)
+    // 12. KEYBOARD SHORTCUTS (WITH 'R' FOR RESET & 'M' FOR MUTE)
     // =======================================================
     window.addEventListener('keydown', (e) => {
         if (['INPUT', 'TEXTAREA'].includes(document.activeElement.tagName) || document.activeElement.isContentEditable) return;
         const v = getActiveVideo();
         if (!v) return;
 
-        // Shift + / - : Speed (Saved to Local Memory)
-        if (e.shiftKey && (e.key === '+' || e.key === '=' || e.code === 'NumpadAdd')) {
+        // Reset Speed to 1.0x: Key 'R'
+        if ((e.key === 'r' || e.key === 'R') && !e.ctrlKey && !e.metaKey) {
+            e.preventDefault();
+            persistentSpeed = 1.0;
+            saveSetting('cs_playback_speed', persistentSpeed);
+            enforcePersistentMedia();
+            showToast('⚡ Speed Reset: 1.0x (Normal)', '#00f2fe');
+        }
+        // Mute / Unmute Toggle: Key 'M'
+        else if ((e.key === 'm' || e.key === 'M') && !e.ctrlKey && !e.metaKey) {
+            e.preventDefault();
+            v.muted = !v.muted;
+            showToast(v.muted ? '🔇 Muted' : `🔊 Unmuted (${Math.round(v.volume * 100)}%)`);
+        }
+        // Shift + / - : Speed Step Up / Down (Saved Globally)
+        else if (e.shiftKey && (e.key === '+' || e.key === '=' || e.code === 'NumpadAdd')) {
             e.preventDefault(); 
             persistentSpeed = Math.min(3.5, +(persistentSpeed + 0.25).toFixed(2));
             saveSetting('cs_playback_speed', persistentSpeed);
@@ -491,27 +504,27 @@
             enforcePersistentMedia();
             showToast(`⚡ Speed: ${persistentSpeed}x`);
         } 
-        // Volume + / - (Saved to Memory)
+        // Volume + / - (Saved Globally Across Websites)
         else if (!e.shiftKey && (e.key === '+' || e.key === '=' || e.code === 'NumpadAdd')) {
             e.preventDefault(); 
-            v.volume = Math.min(1.0, +(v.volume + 0.1).toFixed(2));
-            savedVolume = v.volume;
-            saveSetting('cs_saved_volume', savedVolume);
-            showToast(`🔊 Volume: ${Math.round(v.volume * 100)}%`);
+            globalVolume = Math.min(1.0, +(v.volume + 0.1).toFixed(2));
+            v.volume = globalVolume;
+            saveSetting('cs_global_volume', globalVolume);
+            showToast(`🔊 Global Volume: ${Math.round(globalVolume * 100)}%`);
         } else if (!e.shiftKey && (e.key === '-' || e.code === 'NumpadSubtract')) {
             e.preventDefault(); 
-            v.volume = Math.max(0.0, +(v.volume - 0.1).toFixed(2));
-            savedVolume = v.volume;
-            saveSetting('cs_saved_volume', savedVolume);
-            showToast(`🔉 Volume: ${Math.round(v.volume * 100)}%`);
+            globalVolume = Math.max(0.0, +(v.volume - 0.1).toFixed(2));
+            v.volume = globalVolume;
+            saveSetting('cs_global_volume', globalVolume);
+            showToast(`🔉 Global Volume: ${Math.round(globalVolume * 100)}%`);
         } 
-        // Forward +10s (VOLUME UNCHANGED)
+        // Forward +10s (Volume Untouched)
         else if (e.code === 'ArrowRight') {
             e.preventDefault();
             v.currentTime += 10;
             showToast('⏩ +10s');
         }
-        // Rewind -10s (VOLUME UNCHANGED)
+        // Rewind -10s (Volume Untouched)
         else if (e.code === 'ArrowLeft') {
             e.preventDefault();
             v.currentTime -= 10;
@@ -532,15 +545,13 @@
             e.preventDefault(); toggleClearLoop();
         }
         // Screenshot Capture: S
-        else if (e.key === 's' || e.key === 'S') {
-            if (!e.ctrlKey && !e.metaKey) {
-                e.preventDefault(); captureScreenshot();
-            }
+        else if ((e.key === 's' || e.key === 'S') && !e.ctrlKey && !e.metaKey) {
+            e.preventDefault(); captureScreenshot();
         }
-        // Basic Controls
+        // Space: Play / Pause
         else if (e.code === 'Space') { e.preventDefault(); v.paused ? v.play() : v.pause(); }
+        // Fullscreen: F
         else if (e.code === 'KeyF') { e.preventDefault(); (v.parentElement || v).requestFullscreen(); }
-        else if (e.code === 'KeyM') { e.preventDefault(); v.muted = !v.muted; showToast(v.muted ? '🔇 Muted' : '🔊 Unmuted'); }
     });
 
     // =======================================================
@@ -592,8 +603,12 @@
             if (msg.settings.persistentSpeed) {
                 persistentSpeed = msg.settings.persistentSpeed;
                 saveSetting('cs_playback_speed', persistentSpeed);
-                enforcePersistentMedia();
             }
+            if (msg.settings.globalVolume !== undefined) {
+                globalVolume = msg.settings.globalVolume;
+                saveSetting('cs_global_volume', globalVolume);
+            }
+            enforcePersistentMedia();
             if (msg.settings.eqPreset) {
                 applyEqPreset(msg.settings.eqPreset);
             }
