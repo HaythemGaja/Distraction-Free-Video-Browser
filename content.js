@@ -1,7 +1,9 @@
 (function() {
+    // Default Settings
     let autoNextEnabled = true;
     let autoUnmuteEnabled = true;
     let persistentSpeed = 1.0;
+    let savedVolume = 1.0;
     let ambientGlowEnabled = false;
     let miniHudEnabled = true;
     let currentEqPreset = 'flat';
@@ -11,36 +13,56 @@
     // A-B Repeat Loop State
     let abLoop = { a: null, b: null, active: false };
 
-    // Audio Equalizer Web Audio API State
+    // Audio Equalizer State
     let audioCtx = null;
     let gainNode = null;
     let bassFilter = null;
     let vocalFilter = null;
     let connectedVideo = null;
 
-    // Interaction Listener for Chrome Autoplay Unmute
+    // Track User Interaction for Safe Audio Autoplay per Chrome Policy
     ['click', 'keydown', 'pointerdown', 'touchstart'].forEach(evt => {
         window.addEventListener(evt, () => { hasUserInteracted = true; }, { once: true, capture: true });
     });
 
-    // Load Settings from Storage
-    chrome.storage.sync.get([
-        'cs_auto_next', 'cs_auto_unmute', 'cs_playback_speed',
-        'cs_ambient_glow', 'cs_mini_hud', 'cs_eq_preset', 'cs_force_high_res'
-    ], (data) => {
-        if (data.cs_auto_next !== undefined) autoNextEnabled = data.cs_auto_next;
-        if (data.cs_auto_unmute !== undefined) autoUnmuteEnabled = data.cs_auto_unmute;
-        if (data.cs_playback_speed) persistentSpeed = parseFloat(data.cs_playback_speed);
-        if (data.cs_ambient_glow !== undefined) ambientGlowEnabled = data.cs_ambient_glow;
-        if (data.cs_mini_hud !== undefined) miniHudEnabled = data.cs_mini_hud;
-        if (data.cs_eq_preset) currentEqPreset = data.cs_eq_preset;
-        if (data.cs_force_high_res !== undefined) forceHighResEnabled = data.cs_force_high_res;
+    // Helper: Safe Multi-Storage Loader
+    function loadAllSettings(callback) {
+        const keys = [
+            'cs_auto_next', 'cs_auto_unmute', 'cs_playback_speed', 'cs_saved_volume',
+            'cs_ambient_glow', 'cs_mini_hud', 'cs_eq_preset', 'cs_force_high_res'
+        ];
+        
+        // Try local storage first (failsafe offline), fallback to sync
+        chrome.storage.local.get(keys, (localData) => {
+            chrome.storage.sync.get(keys, (syncData) => {
+                const data = Object.assign({}, syncData, localData);
+                if (data.cs_auto_next !== undefined) autoNextEnabled = data.cs_auto_next;
+                if (data.cs_auto_unmute !== undefined) autoUnmuteEnabled = data.cs_auto_unmute;
+                if (data.cs_playback_speed) persistentSpeed = parseFloat(data.cs_playback_speed);
+                if (data.cs_saved_volume !== undefined) savedVolume = parseFloat(data.cs_saved_volume);
+                if (data.cs_ambient_glow !== undefined) ambientGlowEnabled = data.cs_ambient_glow;
+                if (data.cs_mini_hud !== undefined) miniHudEnabled = data.cs_mini_hud;
+                if (data.cs_eq_preset) currentEqPreset = data.cs_eq_preset;
+                if (data.cs_force_high_res !== undefined) forceHighResEnabled = data.cs_force_high_res;
 
-        enforcePersistentSpeed();
+                if (callback) callback();
+            });
+        });
+    }
+
+    // Helper: Save Settings to Both Local and Sync Storage
+    function saveSetting(key, val) {
+        const obj = { [key]: val };
+        chrome.storage.local.set(obj);
+        chrome.storage.sync.set(obj);
+    }
+
+    // Initialize Settings
+    loadAllSettings(() => {
+        enforcePersistentMedia();
         applyAmbientGlow();
     });
 
-    // On-Screen Toast Notification
     function showToast(text, color = '#00f2fe') {
         let toast = document.getElementById('streamflow-toast');
         if (!toast) {
@@ -54,10 +76,15 @@
         window.__sfToastTimer = setTimeout(() => { if (toast) toast.remove(); }, 1800);
     }
 
+    function getActiveVideo() {
+        const vids = Array.from(document.querySelectorAll('video'));
+        return vids.find(v => !v.paused && v.readyState > 0) || vids[0] || null;
+    }
+
     // =======================================================
-    // 1. PERSISTENT SPEED & ENFORCEMENT
+    // 1. SPEED & VOLUME PERSISTENCE ENGINE
     // =======================================================
-    function enforcePersistentSpeed() {
+    function enforcePersistentMedia() {
         document.querySelectorAll('video').forEach(v => {
             if (!document.querySelector('.ad-showing')) {
                 if (v.playbackRate !== persistentSpeed) {
@@ -98,9 +125,7 @@
     function setPointB() {
         const v = getActiveVideo();
         if (!v) return;
-        if (abLoop.a === null) {
-            abLoop.a = 0;
-        }
+        if (abLoop.a === null) abLoop.a = 0;
         abLoop.b = v.currentTime;
         abLoop.active = true;
         showToast(`🔁 Loop Point B: ${formatTime(abLoop.b)} (Active)`, '#2ecc71');
@@ -120,7 +145,6 @@
         return `${m}:${s < 10 ? '0' : ''}${s}`;
     }
 
-    // A-B Loop Check Listener
     document.addEventListener('timeupdate', (e) => {
         if (e.target && e.target.tagName === 'VIDEO' && abLoop.active) {
             const v = e.target;
@@ -138,17 +162,17 @@
         const v = getActiveVideo();
         if (!v) return;
         if (!v.paused) v.pause();
-        const step = 0.04; // ~1 frame at 25-30fps
+        const step = 0.04;
         v.currentTime = forward ? Math.min(v.duration, v.currentTime + step) : Math.max(0, v.currentTime - step);
         showToast(`🎞️ Frame: ${v.currentTime.toFixed(2)}s`, '#00f2fe');
     }
 
     // =======================================================
-    // 4. TIMESTAMPED HD SCREENSHOT CAPTURE
+    // 4. TIMESTAMPED HD SCREENSHOT
     // =======================================================
     function captureScreenshot() {
         const v = getActiveVideo();
-        if (!v || v.readyState < 2) return showToast('⚠️ No active video frame to capture', '#ff5f56');
+        if (!v || v.readyState < 2) return showToast('⚠️ No active video frame', '#ff5f56');
 
         try {
             const canvas = document.createElement('canvas');
@@ -167,12 +191,12 @@
             link.click();
             showToast(`📸 Saved: ${fileName}`, '#2ecc71');
         } catch (e) {
-            showToast('⚠️ Screenshot blocked (CORS Protected Stream)', '#ff5f56');
+            showToast('⚠️ Screenshot blocked (Protected Stream)', '#ff5f56');
         }
     }
 
     // =======================================================
-    // 5. WEB AUDIO EQUALIZER (VOCAL, BASS, NIGHT MODE)
+    // 5. AUDIO EQUALIZER
     // =======================================================
     function initAudioEqualizer(video) {
         if (!hasUserInteracted) return;
@@ -191,12 +215,10 @@
             const source = audioCtx.createMediaElementSource(video);
             connectedVideo = video;
 
-            // Low Shelf Filter (Bass)
             bassFilter = audioCtx.createBiquadFilter();
             bassFilter.type = 'lowshelf';
             bassFilter.frequency.value = 120;
 
-            // Peaking Filter (Vocals)
             vocalFilter = audioCtx.createBiquadFilter();
             vocalFilter.type = 'peaking';
             vocalFilter.frequency.value = 2000;
@@ -210,13 +232,12 @@
             gainNode.connect(audioCtx.destination);
 
             applyEqPreset(currentEqPreset);
-        } catch (e) {
-            // Already connected or cross-origin policy
-        }
+        } catch (e) {}
     }
 
     function applyEqPreset(preset) {
         currentEqPreset = preset;
+        saveSetting('cs_eq_preset', currentEqPreset);
         if (!bassFilter || !vocalFilter || !gainNode) return;
 
         if (preset === 'vocal') {
@@ -273,7 +294,7 @@
             if (player && typeof player.getAvailableQualityLevels === 'function') {
                 const levels = player.getAvailableQualityLevels();
                 if (levels && levels.length > 0) {
-                    const topQuality = levels[0]; // e.g. hd2160, hd1440, hd1080
+                    const topQuality = levels[0];
                     player.setPlaybackQualityRange(topQuality, topQuality);
                     player.setPlaybackQuality(topQuality);
                 }
@@ -282,7 +303,7 @@
     }
 
     // =======================================================
-    // 8. ON-VIDEO FLOATING MINI-HUD (HOVER CONTROLS)
+    // 8. ON-VIDEO FLOATING MINI-HUD (NO VOLUME OVERRIDE ON FORWARD)
     // =======================================================
     function injectMiniHud() {
         if (!miniHudEnabled) {
@@ -294,7 +315,6 @@
             const container = vid.parentElement;
             if (!container || container.querySelector('.streamflow-mini-hud')) return;
 
-            // Ensure container has positioning context
             const pos = window.getComputedStyle(container).position;
             if (pos === 'static') container.style.position = 'relative';
 
@@ -305,32 +325,38 @@
                 background: rgba(14, 18, 26, 0.85); backdrop-filter: blur(8px);
                 border: 1px solid rgba(0, 242, 254, 0.4); border-radius: 20px;
                 padding: 4px 8px; display: flex; gap: 6px; align-items: center;
-                opacity: 0; transition: opacity 0.25s ease, transform 0.25s ease;
+                opacity: 0; transition: opacity 0.25s ease;
                 font-family: -apple-system, sans-serif; box-shadow: 0 4px 15px rgba(0,0,0,0.6);
             `;
 
             hud.innerHTML = `
                 <button class="sf-hud-btn sf-speed-btn" style="background:#222838; color:#00f2fe; border:none; padding:2px 6px; border-radius:12px; font-size:10px; font-weight:bold; cursor:pointer;" title="Click to Cycle Speed">${persistentSpeed}x</button>
+                <button class="sf-hud-btn sf-fwd-btn" style="background:none; border:none; color:#fff; font-size:12px; cursor:pointer;" title="Forward +10s">⏩</button>
                 <button class="sf-hud-btn sf-pip-btn" style="background:none; border:none; color:#fff; font-size:12px; cursor:pointer;" title="Picture-in-Picture">🪟</button>
                 <button class="sf-hud-btn sf-shot-btn" style="background:none; border:none; color:#fff; font-size:12px; cursor:pointer;" title="Take Screenshot (S)">📸</button>
                 <button class="sf-hud-btn sf-loop-btn" style="background:none; border:none; color:#fff; font-size:12px; cursor:pointer;" title="A-B Loop (Click: A, Shift+Click: B)">🔁</button>
             `;
 
-            // Hover state
             container.addEventListener('mouseenter', () => { hud.style.opacity = '1'; });
             container.addEventListener('mouseleave', () => { hud.style.opacity = '0'; });
 
-            // Button actions
             hud.querySelector('.sf-speed-btn').addEventListener('click', (e) => {
                 e.stopPropagation();
                 const speeds = [0.75, 1.0, 1.25, 1.5, 1.75, 2.0, 2.5];
                 let nextIdx = speeds.indexOf(persistentSpeed) + 1;
                 if (nextIdx >= speeds.length || nextIdx === 0) nextIdx = 0;
                 persistentSpeed = speeds[nextIdx];
-                chrome.storage.sync.set({ cs_playback_speed: persistentSpeed });
-                enforcePersistentSpeed();
+                saveSetting('cs_playback_speed', persistentSpeed);
+                enforcePersistentMedia();
                 hud.querySelector('.sf-speed-btn').innerText = `${persistentSpeed}x`;
                 showToast(`⚡ Speed: ${persistentSpeed}x`);
+            });
+
+            // Forward +10s (WITHOUT touching or changing volume)
+            hud.querySelector('.sf-fwd-btn').addEventListener('click', (e) => {
+                e.stopPropagation();
+                vid.currentTime += 10;
+                showToast('⏩ +10s');
             });
 
             hud.querySelector('.sf-pip-btn').addEventListener('click', (e) => {
@@ -401,7 +427,6 @@
             if (v.muted && !document.querySelector('.ad-showing')) {
                 try {
                     v.muted = false;
-                    v.volume = 1.0;
                 } catch(e) {}
             }
         });
@@ -411,7 +436,7 @@
     }, 800);
 
     // =======================================================
-    // 11. CONTINUOUS PIP & AUTO-PLAY NEXT
+    // 11. CONTINUOUS PIP & AUTO-NEXT
     // =======================================================
     document.addEventListener('ended', async (e) => {
         if (!autoNextEnabled) return;
@@ -423,54 +448,75 @@
             if (currentIdx !== -1 && currentIdx + 1 < vids.length) {
                 const nextVid = vids[currentIdx + 1];
                 nextVid.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                
                 setTimeout(async () => {
-                    nextVid.muted = false;
-                    nextVid.volume = 1.0;
                     nextVid.playbackRate = persistentSpeed;
                     try {
                         await nextVid.play();
+                        const userActive = (navigator.userActivation && navigator.userActivation.hasBeenActive) || hasUserInteracted;
+                        if (userActive) {
+                            try {
+                                nextVid.muted = false;
+                            } catch(unmuteErr) {
+                                const fbUnmute = document.querySelector('[aria-label*="unmute" i], [aria-label*="Unmute" i]');
+                                if (fbUnmute) fbUnmute.click();
+                            }
+                        }
                         if (wasInPiP) await nextVid.requestPictureInPicture();
-                    } catch(err) {}
+                    } catch(playErr) {}
                 }, 700);
             }
         }
     }, true);
 
     // =======================================================
-    // 12. KEYBOARD SHORTCUTS
+    // 12. KEYBOARD SHORTCUTS (NO VOLUME OVERRIDE ON ARROW RIGHT)
     // =======================================================
-    function getActiveVideo() {
-        const vids = Array.from(document.querySelectorAll('video'));
-        return vids.find(v => !v.paused && v.readyState > 0) || vids[0] || null;
-    }
-
     window.addEventListener('keydown', (e) => {
         if (['INPUT', 'TEXTAREA'].includes(document.activeElement.tagName) || document.activeElement.isContentEditable) return;
         const v = getActiveVideo();
         if (!v) return;
 
-        // Shift + / - : Speed
+        // Shift + / - : Speed (Saved to Local Memory)
         if (e.shiftKey && (e.key === '+' || e.key === '=' || e.code === 'NumpadAdd')) {
             e.preventDefault(); 
             persistentSpeed = Math.min(3.5, +(persistentSpeed + 0.25).toFixed(2));
-            chrome.storage.sync.set({ cs_playback_speed: persistentSpeed });
-            enforcePersistentSpeed();
+            saveSetting('cs_playback_speed', persistentSpeed);
+            enforcePersistentMedia();
             showToast(`⚡ Speed: ${persistentSpeed}x`);
         } else if (e.shiftKey && (e.key === '_' || e.key === '-' || e.code === 'NumpadSubtract')) {
             e.preventDefault(); 
             persistentSpeed = Math.max(0.25, +(persistentSpeed - 0.25).toFixed(2));
-            chrome.storage.sync.set({ cs_playback_speed: persistentSpeed });
-            enforcePersistentSpeed();
+            saveSetting('cs_playback_speed', persistentSpeed);
+            enforcePersistentMedia();
             showToast(`⚡ Speed: ${persistentSpeed}x`);
         } 
-        // Volume + / -
+        // Volume + / - (Saved to Memory)
         else if (!e.shiftKey && (e.key === '+' || e.key === '=' || e.code === 'NumpadAdd')) {
-            e.preventDefault(); v.volume = Math.min(1.0, +(v.volume + 0.1).toFixed(2));
+            e.preventDefault(); 
+            v.volume = Math.min(1.0, +(v.volume + 0.1).toFixed(2));
+            savedVolume = v.volume;
+            saveSetting('cs_saved_volume', savedVolume);
             showToast(`🔊 Volume: ${Math.round(v.volume * 100)}%`);
         } else if (!e.shiftKey && (e.key === '-' || e.code === 'NumpadSubtract')) {
-            e.preventDefault(); v.volume = Math.max(0.0, +(v.volume - 0.1).toFixed(2));
+            e.preventDefault(); 
+            v.volume = Math.max(0.0, +(v.volume - 0.1).toFixed(2));
+            savedVolume = v.volume;
+            saveSetting('cs_saved_volume', savedVolume);
             showToast(`🔉 Volume: ${Math.round(v.volume * 100)}%`);
         } 
+        // Forward +10s (VOLUME UNCHANGED)
+        else if (e.code === 'ArrowRight') {
+            e.preventDefault();
+            v.currentTime += 10;
+            showToast('⏩ +10s');
+        }
+        // Rewind -10s (VOLUME UNCHANGED)
+        else if (e.code === 'ArrowLeft') {
+            e.preventDefault();
+            v.currentTime -= 10;
+            showToast('⏪ -10s');
+        }
         // Frame Stepper: [ , ] (Back) and [ . ] (Forward)
         else if (e.key === ',' || e.code === 'Comma') {
             e.preventDefault(); stepFrame(false);
@@ -495,8 +541,6 @@
         else if (e.code === 'Space') { e.preventDefault(); v.paused ? v.play() : v.pause(); }
         else if (e.code === 'KeyF') { e.preventDefault(); (v.parentElement || v).requestFullscreen(); }
         else if (e.code === 'KeyM') { e.preventDefault(); v.muted = !v.muted; showToast(v.muted ? '🔇 Muted' : '🔊 Unmuted'); }
-        else if (e.code === 'ArrowRight') { e.preventDefault(); v.currentTime += 10; }
-        else if (e.code === 'ArrowLeft') { e.preventDefault(); v.currentTime -= 10; }
     });
 
     // =======================================================
@@ -536,11 +580,19 @@
             ambientGlowEnabled = msg.settings.ambientGlowEnabled;
             miniHudEnabled = msg.settings.miniHudEnabled;
             forceHighResEnabled = msg.settings.forceHighResEnabled;
+            
+            saveSetting('cs_auto_next', autoNextEnabled);
+            saveSetting('cs_auto_unmute', autoUnmuteEnabled);
+            saveSetting('cs_ambient_glow', ambientGlowEnabled);
+            saveSetting('cs_mini_hud', miniHudEnabled);
+            saveSetting('cs_force_high_res', forceHighResEnabled);
+
             applyAmbientGlow();
             injectMiniHud();
             if (msg.settings.persistentSpeed) {
                 persistentSpeed = msg.settings.persistentSpeed;
-                enforcePersistentSpeed();
+                saveSetting('cs_playback_speed', persistentSpeed);
+                enforcePersistentMedia();
             }
             if (msg.settings.eqPreset) {
                 applyEqPreset(msg.settings.eqPreset);

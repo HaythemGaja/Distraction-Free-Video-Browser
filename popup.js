@@ -19,26 +19,32 @@ document.addEventListener('DOMContentLoaded', () => {
     let forceHighResEnabled = true;
     let watchLaterList = [];
 
-    chrome.storage.sync.get([
+    // Load from Both Local and Sync Storage
+    const storageKeys = [
         'cs_auto_next', 'cs_auto_unmute', 'cs_playback_speed',
         'cs_ambient_glow', 'cs_mini_hud', 'cs_eq_preset', 'cs_force_high_res',
         'cs_watch_later'
-    ], (data) => {
-        if (data.cs_auto_next !== undefined) autoNextEnabled = data.cs_auto_next;
-        if (data.cs_auto_unmute !== undefined) autoUnmuteEnabled = data.cs_auto_unmute;
-        if (data.cs_playback_speed) persistentSpeed = parseFloat(data.cs_playback_speed);
-        if (data.cs_ambient_glow !== undefined) ambientGlowEnabled = data.cs_ambient_glow;
-        if (data.cs_mini_hud !== undefined) miniHudEnabled = data.cs_mini_hud;
-        if (data.cs_eq_preset) currentEqPreset = data.cs_eq_preset;
-        if (data.cs_force_high_res !== undefined) forceHighResEnabled = data.cs_force_high_res;
-        if (data.cs_watch_later) watchLaterList = data.cs_watch_later;
+    ];
 
-        syncUI();
-        renderWatchLater();
+    chrome.storage.local.get(storageKeys, (localData) => {
+        chrome.storage.sync.get(storageKeys, (syncData) => {
+            const data = Object.assign({}, syncData, localData);
+            if (data.cs_auto_next !== undefined) autoNextEnabled = data.cs_auto_next;
+            if (data.cs_auto_unmute !== undefined) autoUnmuteEnabled = data.cs_auto_unmute;
+            if (data.cs_playback_speed) persistentSpeed = parseFloat(data.cs_playback_speed);
+            if (data.cs_ambient_glow !== undefined) ambientGlowEnabled = data.cs_ambient_glow;
+            if (data.cs_mini_hud !== undefined) miniHudEnabled = data.cs_mini_hud;
+            if (data.cs_eq_preset) currentEqPreset = data.cs_eq_preset;
+            if (data.cs_force_high_res !== undefined) forceHighResEnabled = data.cs_force_high_res;
+            if (data.cs_watch_later) watchLaterList = data.cs_watch_later;
+
+            syncUI();
+            renderWatchLater();
+        });
     });
 
-    function saveSettings() {
-        chrome.storage.sync.set({
+    function saveAllSettings() {
+        const settingsObj = {
             cs_auto_next: autoNextEnabled,
             cs_auto_unmute: autoUnmuteEnabled,
             cs_playback_speed: persistentSpeed,
@@ -46,7 +52,11 @@ document.addEventListener('DOMContentLoaded', () => {
             cs_mini_hud: miniHudEnabled,
             cs_eq_preset: currentEqPreset,
             cs_force_high_res: forceHighResEnabled
-        });
+        };
+
+        // Write to both local memory and cloud sync
+        chrome.storage.local.set(settingsObj);
+        chrome.storage.sync.set(settingsObj);
 
         chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
             if (tabs[0]) {
@@ -81,29 +91,29 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('toggle-autonext').addEventListener('click', () => {
         autoNextEnabled = !autoNextEnabled;
         syncUI();
-        saveSettings();
+        saveAllSettings();
     });
 
     document.getElementById('toggle-ambient').addEventListener('click', () => {
         ambientGlowEnabled = !ambientGlowEnabled;
         syncUI();
-        saveSettings();
+        saveAllSettings();
     });
 
     document.getElementById('toggle-minihud').addEventListener('click', () => {
         miniHudEnabled = !miniHudEnabled;
         syncUI();
-        saveSettings();
+        saveAllSettings();
     });
 
     document.getElementById('speed-select').addEventListener('change', (e) => {
         persistentSpeed = parseFloat(e.target.value);
-        saveSettings();
+        saveAllSettings();
     });
 
     document.getElementById('eq-select').addEventListener('change', (e) => {
         currentEqPreset = e.target.value;
-        saveSettings();
+        saveAllSettings();
     });
 
     // Action Triggers to Active Tab
@@ -163,6 +173,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             el.querySelector('.wl-del').addEventListener('click', () => {
                 watchLaterList = watchLaterList.filter(i => i.id !== item.id);
+                chrome.storage.local.set({ cs_watch_later: watchLaterList });
                 chrome.storage.sync.set({ cs_watch_later: watchLaterList });
                 renderWatchLater();
             });
@@ -191,6 +202,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 };
 
                 watchLaterList.unshift(newItem);
+                chrome.storage.local.set({ cs_watch_later: watchLaterList });
                 chrome.storage.sync.set({ cs_watch_later: watchLaterList });
                 renderWatchLater();
             });
