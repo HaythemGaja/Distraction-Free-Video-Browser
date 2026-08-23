@@ -9,16 +9,28 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    // 2. Media Settings State
+    // 2. Settings State
     let autoNextEnabled = true;
     let autoUnmuteEnabled = true;
     let persistentSpeed = 1.0;
+    let ambientGlowEnabled = false;
+    let miniHudEnabled = true;
+    let currentEqPreset = 'flat';
+    let forceHighResEnabled = true;
     let watchLaterList = [];
 
-    chrome.storage.sync.get(['cs_auto_next', 'cs_auto_unmute', 'cs_playback_speed', 'cs_watch_later'], (data) => {
+    chrome.storage.sync.get([
+        'cs_auto_next', 'cs_auto_unmute', 'cs_playback_speed',
+        'cs_ambient_glow', 'cs_mini_hud', 'cs_eq_preset', 'cs_force_high_res',
+        'cs_watch_later'
+    ], (data) => {
         if (data.cs_auto_next !== undefined) autoNextEnabled = data.cs_auto_next;
         if (data.cs_auto_unmute !== undefined) autoUnmuteEnabled = data.cs_auto_unmute;
         if (data.cs_playback_speed) persistentSpeed = parseFloat(data.cs_playback_speed);
+        if (data.cs_ambient_glow !== undefined) ambientGlowEnabled = data.cs_ambient_glow;
+        if (data.cs_mini_hud !== undefined) miniHudEnabled = data.cs_mini_hud;
+        if (data.cs_eq_preset) currentEqPreset = data.cs_eq_preset;
+        if (data.cs_force_high_res !== undefined) forceHighResEnabled = data.cs_force_high_res;
         if (data.cs_watch_later) watchLaterList = data.cs_watch_later;
 
         syncUI();
@@ -29,14 +41,22 @@ document.addEventListener('DOMContentLoaded', () => {
         chrome.storage.sync.set({
             cs_auto_next: autoNextEnabled,
             cs_auto_unmute: autoUnmuteEnabled,
-            cs_playback_speed: persistentSpeed
+            cs_playback_speed: persistentSpeed,
+            cs_ambient_glow: ambientGlowEnabled,
+            cs_mini_hud: miniHudEnabled,
+            cs_eq_preset: currentEqPreset,
+            cs_force_high_res: forceHighResEnabled
         });
 
         chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
             if (tabs[0]) {
                 chrome.tabs.sendMessage(tabs[0].id, {
-                    action: 'UPDATE_MEDIA_SETTINGS',
-                    settings: { autoNextEnabled, autoUnmuteEnabled, persistentSpeed }
+                    action: 'UPDATE_SETTINGS',
+                    settings: {
+                        autoNextEnabled, autoUnmuteEnabled, persistentSpeed,
+                        ambientGlowEnabled, miniHudEnabled, eqPreset: currentEqPreset,
+                        forceHighResEnabled
+                    }
                 }).catch(() => {});
             }
         });
@@ -44,8 +64,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function syncUI() {
         setupToggle('toggle-autonext', autoNextEnabled);
-        setupToggle('toggle-autounmute', autoUnmuteEnabled);
+        setupToggle('toggle-ambient', ambientGlowEnabled);
+        setupToggle('toggle-minihud', miniHudEnabled);
         document.getElementById('speed-select').value = persistentSpeed.toString();
+        document.getElementById('eq-select').value = currentEqPreset;
     }
 
     function setupToggle(btnId, val) {
@@ -55,14 +77,21 @@ document.addEventListener('DOMContentLoaded', () => {
         btn.className = 'toggle-btn ' + (val ? 'on' : 'off');
     }
 
+    // Toggle Handlers
     document.getElementById('toggle-autonext').addEventListener('click', () => {
         autoNextEnabled = !autoNextEnabled;
         syncUI();
         saveSettings();
     });
 
-    document.getElementById('toggle-autounmute').addEventListener('click', () => {
-        autoUnmuteEnabled = !autoUnmuteEnabled;
+    document.getElementById('toggle-ambient').addEventListener('click', () => {
+        ambientGlowEnabled = !ambientGlowEnabled;
+        syncUI();
+        saveSettings();
+    });
+
+    document.getElementById('toggle-minihud').addEventListener('click', () => {
+        miniHudEnabled = !miniHudEnabled;
         syncUI();
         saveSettings();
     });
@@ -72,19 +101,30 @@ document.addEventListener('DOMContentLoaded', () => {
         saveSettings();
     });
 
-    document.getElementById('btn-pip').addEventListener('click', () => {
-        chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-            if (tabs[0]) chrome.tabs.sendMessage(tabs[0].id, { action: 'TRIGGER_PIP' }).catch(() => {});
-        });
+    document.getElementById('eq-select').addEventListener('change', (e) => {
+        currentEqPreset = e.target.value;
+        saveSettings();
     });
 
-    document.getElementById('btn-focus').addEventListener('click', () => {
+    // Action Triggers to Active Tab
+    const sendTabAction = (action) => {
         chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-            if (tabs[0]) chrome.tabs.sendMessage(tabs[0].id, { action: 'TRIGGER_FOCUS' }).catch(() => {});
+            if (tabs[0]) chrome.tabs.sendMessage(tabs[0].id, { action }).catch(() => {});
         });
-    });
+    };
 
-    // 3. Watch Later Implementation
+    document.getElementById('btn-pip').addEventListener('click', () => sendTabAction('TRIGGER_PIP'));
+    document.getElementById('btn-focus').addEventListener('click', () => sendTabAction('TRIGGER_FOCUS'));
+    document.getElementById('btn-shot').addEventListener('click', () => sendTabAction('TRIGGER_SCREENSHOT'));
+
+    document.getElementById('btn-ab-a').addEventListener('click', () => sendTabAction('SET_AB_A'));
+    document.getElementById('btn-ab-b').addEventListener('click', () => sendTabAction('SET_AB_B'));
+    document.getElementById('btn-ab-clear').addEventListener('click', () => sendTabAction('CLEAR_AB'));
+
+    document.getElementById('btn-frame-back').addEventListener('click', () => sendTabAction('STEP_FRAME_BACK'));
+    document.getElementById('btn-frame-fwd').addEventListener('click', () => sendTabAction('STEP_FRAME_FWD'));
+
+    // 3. Watch Later Queue
     function renderWatchLater() {
         document.getElementById('wl-count').innerText = watchLaterList.length;
         chrome.runtime.sendMessage({ type: 'UPDATE_BADGE', count: watchLaterList.length });
