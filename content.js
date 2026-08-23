@@ -1,4 +1,5 @@
 (function() {
+    // Default Settings
     let adSkipperEnabled = true;
     let autoNextEnabled = true;
     let autoUnmuteEnabled = true;
@@ -77,7 +78,6 @@
         window.__sfToastTimer = setTimeout(() => { if (toast) toast.remove(); }, 1800);
     }
 
-    // High-performance video scanner (No DOM tree freezing)
     function getAllVideos() {
         return Array.from(document.querySelectorAll('video'));
     }
@@ -87,7 +87,6 @@
         return vids.find(v => !v.paused && v.readyState > 0) || vids[0] || null;
     }
 
-    // Safe Ad Detector
     function isAdVideo(v) {
         if (!v) return false;
         if (document.querySelector('.ad-showing, .ytp-ad-player-overlay, .ad-interrupting')) return true;
@@ -134,6 +133,15 @@
             }
         }
     }, true);
+
+    const dynamicObserver = new MutationObserver(() => {
+        const vids = getAllVideos();
+        if (vids.length > 0) {
+            enforcePersistentMedia();
+            injectMiniHud();
+        }
+    });
+    dynamicObserver.observe(document.body || document.documentElement, { childList: true, subtree: true });
 
     // =======================================================
     // 2. A-B REPEAT LOOP ENGINE
@@ -322,165 +330,207 @@
     }
 
     // =======================================================
-    // 6. ON-VIDEO FLOATING MINI-HUD (ALWAYS-ON-TOP & DRAGGABLE)
+    // 6. SINGLETON ALWAYS-ON-TOP DRAGGABLE MINI-HUD (NO DUPLICATES)
     // =======================================================
     function updateMiniHudPlayState() {
+        const hud = document.getElementById('streamflow-global-hud');
+        if (!hud) return;
         const v = getActiveVideo();
         const isPaused = v ? v.paused : true;
-        document.querySelectorAll('.streamflow-mini-hud').forEach(hud => {
-            const playSvg = hud.querySelector('.sf-play-btn svg');
-            if (playSvg) {
-                playSvg.innerHTML = isPaused
-                    ? `<path d="M8 5v14l11-7z"/>`
-                    : `<path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>`;
-            }
-            const speedBtn = hud.querySelector('.sf-speed-btn');
-            if (speedBtn) speedBtn.innerText = `${persistentSpeed}x`;
-        });
+
+        const playSvg = hud.querySelector('.sf-play-btn svg');
+        if (playSvg) {
+            playSvg.innerHTML = isPaused
+                ? `<path d="M8 5v14l11-7z"/>`
+                : `<path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>`;
+        }
+        const speedBtn = hud.querySelector('.sf-speed-btn');
+        if (speedBtn) speedBtn.innerText = `${persistentSpeed}x`;
     }
 
     function injectMiniHud() {
-        if (!miniHudEnabled || location.hostname.includes('tiktok.com')) return;
+        // Clean up duplicates if disabled or on TikTok
+        if (!miniHudEnabled || location.hostname.includes('tiktok.com')) {
+            const existing = document.getElementById('streamflow-global-hud');
+            if (existing) existing.remove();
+            return;
+        }
 
-        const vids = getAllVideos();
-        vids.forEach(vid => {
-            if (isAdVideo(vid)) return;
-            const container = vid.parentElement;
-            if (!container || container.querySelector('.streamflow-mini-hud')) return;
+        const vids = getAllVideos().filter(v => !isAdVideo(v));
+        if (vids.length === 0) {
+            const existing = document.getElementById('streamflow-global-hud');
+            if (existing) existing.remove();
+            return;
+        }
 
-            const hud = document.createElement('div');
-            hud.className = 'streamflow-mini-hud';
+        // If singleton HUD already exists, update its state and return
+        let hud = document.getElementById('streamflow-global-hud');
+        if (hud) {
+            updateMiniHudPlayState();
+            return;
+        }
+
+        // Clean out any orphaned HUDs before creating the singleton
+        document.querySelectorAll('.streamflow-mini-hud').forEach(el => el.remove());
+
+        hud = document.createElement('div');
+        hud.id = 'streamflow-global-hud';
+        hud.className = 'streamflow-mini-hud';
+        
+        hud.style.cssText = `
+            position: fixed !important; 
+            top: ${savedHudPosition ? savedHudPosition.top : '20px'} !important; 
+            left: ${savedHudPosition ? savedHudPosition.left : 'auto'} !important; 
+            right: ${savedHudPosition ? 'auto' : '25px'} !important;
+            z-index: 2147483647 !important;
+            background: rgba(18, 21, 30, 0.92) !important; 
+            backdrop-filter: blur(14px) !important; 
+            -webkit-backdrop-filter: blur(14px) !important;
+            border: 1px solid rgba(138, 180, 248, 0.35) !important; 
+            border-radius: 30px !important;
+            padding: 4px 8px !important; 
+            display: flex !important; 
+            gap: 5px !important; 
+            align-items: center !important;
+            opacity: 0.85 !important; 
+            transition: opacity 0.2s ease, box-shadow 0.2s ease !important;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+            box-shadow: 0 8px 30px rgba(0,0,0,0.75) !important; 
+            user-select: none !important;
+            cursor: grab !important;
+        `;
+
+        hud.innerHTML = `
+            <!-- Play/Pause Button -->
+            <button class="sf-hud-btn sf-play-btn" style="background:#a8c7fa; border:none; color:#041e49; width:26px; height:26px; border-radius:50%; display:flex; align-items:center; justify-content:center; cursor:pointer; outline:none; padding:4px; transition:0.15s;" title="Play / Pause (Space)">
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+            </button>
+
+            <!-- Rewind -10s -->
+            <button class="sf-hud-btn sf-rewind-btn" style="background:transparent; border:none; color:#e8eaed; width:26px; height:26px; border-radius:50%; display:flex; align-items:center; justify-content:center; cursor:pointer; outline:none; padding:4px; transition:0.15s;" title="Rewind -10s">
+                <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor"><path d="M12.5 8c-2.65 0-5.05 1-6.9 2.6L2 7v9h9l-3.62-3.62c1.39-1.2 3.16-1.88 5.12-1.88 3.54 0 6.55 2.31 7.6 5.5l2.37-.78C21.08 11.03 17.15 8 12.5 8z"/></svg>
+            </button>
+
+            <!-- Fast Forward +10s -->
+            <button class="sf-hud-btn sf-fwd-btn" style="background:transparent; border:none; color:#e8eaed; width:26px; height:26px; border-radius:50%; display:flex; align-items:center; justify-content:center; cursor:pointer; outline:none; padding:4px; transition:0.15s;" title="Fast Forward +10s">
+                <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor"><path d="M11.5 8c2.65 0 5.05 1 6.9 2.6L22 7v9h-9l3.62-3.62c-1.39-1.2-3.16-1.88-5.12-1.88-3.54 0-6.55 2.31-7.6 5.5l-2.37-.78C2.92 11.03 6.85 8 11.5 8z"/></svg>
+            </button>
+
+            <!-- Speed Selector Pill -->
+            <button class="sf-hud-btn sf-speed-btn" style="background:rgba(0,242,254,0.14); color:#00f2fe; border:1px solid rgba(0,242,254,0.4); padding:2px 8px; border-radius:14px; font-size:11px; font-weight:800; cursor:pointer; outline:none; transition:0.15s;" title="Click to Cycle Speed">${persistentSpeed}x</button>
+
+            <!-- PiP Button -->
+            <button class="sf-hud-btn sf-pip-btn" style="background:transparent; border:none; color:#e8eaed; width:26px; height:26px; border-radius:50%; display:flex; align-items:center; justify-content:center; cursor:pointer; outline:none; padding:4px; transition:0.15s;" title="Picture-in-Picture">
+                <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor"><path d="M19 11h-8v6h8v-6zm4 8V5c0-1.1-.9-2-2-2H3c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2zm-2 0H3V5h18v14z"/></svg>
+            </button>
             
-            hud.style.cssText = `
-                position: fixed !important; 
-                top: ${savedHudPosition ? savedHudPosition.top : '20px'} !important; 
-                left: ${savedHudPosition ? savedHudPosition.left : 'auto'} !important; 
-                right: ${savedHudPosition ? 'auto' : '25px'} !important;
-                z-index: 2147483647 !important;
-                background: rgba(18, 21, 30, 0.92) !important; 
-                backdrop-filter: blur(14px) !important; 
-                -webkit-backdrop-filter: blur(14px) !important;
-                border: 1px solid rgba(138, 180, 248, 0.35) !important; 
-                border-radius: 30px !important;
-                padding: 4px 8px !important; 
-                display: flex !important; 
-                gap: 5px !important; 
-                align-items: center !important;
-                opacity: 0.85 !important; 
-                transition: opacity 0.2s ease !important;
-                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
-                box-shadow: 0 8px 30px rgba(0,0,0,0.75) !important; 
-                user-select: none !important;
-                cursor: grab !important;
-            `;
+            <!-- Screenshot Button -->
+            <button class="sf-hud-btn sf-shot-btn" style="background:transparent; border:none; color:#e8eaed; width:26px; height:26px; border-radius:50%; display:flex; align-items:center; justify-content:center; cursor:pointer; outline:none; padding:4px; transition:0.15s;" title="Take Screenshot (S)">
+                <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor"><path d="M12 15.2a3.2 3.2 0 1 0 0-6.4 3.2 3.2 0 0 0 0 6.4zm8-9.2h-3.2L15 4H9L7.2 6H4c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm0 12H4V8h3.9l1.8-2h4.6l1.8 2H20v10z"/></svg>
+            </button>
+        `;
 
-            hud.innerHTML = `
-                <button class="sf-hud-btn sf-play-btn" style="background:#a8c7fa; border:none; color:#041e49; width:26px; height:26px; border-radius:50%; display:flex; align-items:center; justify-content:center; cursor:pointer; outline:none; padding:4px;" title="Play / Pause (Space)">
-                    <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="${vid.paused ? 'M8 5v14l11-7z' : 'M6 19h4V5H6v14zm8-14v14h4V5h-4z'}"/></svg>
-                </button>
-                <button class="sf-hud-btn sf-rewind-btn" style="background:transparent; border:none; color:#e8eaed; width:26px; height:26px; border-radius:50%; display:flex; align-items:center; justify-content:center; cursor:pointer; outline:none; padding:4px;" title="Rewind -10s">
-                    <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor"><path d="M12.5 8c-2.65 0-5.05 1-6.9 2.6L2 7v9h9l-3.62-3.62c1.39-1.2 3.16-1.88 5.12-1.88 3.54 0 6.55 2.31 7.6 5.5l2.37-.78C21.08 11.03 17.15 8 12.5 8z"/></svg>
-                </button>
-                <button class="sf-hud-btn sf-fwd-btn" style="background:transparent; border:none; color:#e8eaed; width:26px; height:26px; border-radius:50%; display:flex; align-items:center; justify-content:center; cursor:pointer; outline:none; padding:4px;" title="Fast Forward +10s">
-                    <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor"><path d="M11.5 8c2.65 0 5.05 1 6.9 2.6L22 7v9h-9l3.62-3.62c-1.39-1.2-3.16-1.88-5.12-1.88-3.54 0-6.55 2.31-7.6 5.5l-2.37-.78C2.92 11.03 6.85 8 11.5 8z"/></svg>
-                </button>
-                <button class="sf-hud-btn sf-speed-btn" style="background:rgba(0,242,254,0.14); color:#00f2fe; border:1px solid rgba(0,242,254,0.4); padding:2px 8px; border-radius:14px; font-size:11px; font-weight:800; cursor:pointer; outline:none;" title="Click to Cycle Speed">${persistentSpeed}x</button>
-                <button class="sf-hud-btn sf-pip-btn" style="background:transparent; border:none; color:#e8eaed; width:26px; height:26px; border-radius:50%; display:flex; align-items:center; justify-content:center; cursor:pointer; outline:none; padding:4px;" title="Picture-in-Picture">
-                    <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor"><path d="M19 11h-8v6h8v-6zm4 8V5c0-1.1-.9-2-2-2H3c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2zm-2 0H3V5h18v14z"/></svg>
-                </button>
-                <button class="sf-hud-btn sf-shot-btn" style="background:transparent; border:none; color:#e8eaed; width:26px; height:26px; border-radius:50%; display:flex; align-items:center; justify-content:center; cursor:pointer; outline:none; padding:4px;" title="Take Screenshot (S)">
-                    <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor"><path d="M12 15.2a3.2 3.2 0 1 0 0-6.4 3.2 3.2 0 0 0 0 6.4zm8-9.2h-3.2L15 4H9L7.2 6H4c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm0 12H4V8h3.9l1.8-2h4.6l1.8 2H20v10z"/></svg>
-                </button>
-            `;
+        hud.addEventListener('mouseenter', () => { hud.style.opacity = '1'; });
+        hud.addEventListener('mouseleave', () => { hud.style.opacity = '0.85'; });
 
-            hud.addEventListener('mouseenter', () => { hud.style.opacity = '1'; });
-            hud.addEventListener('mouseleave', () => { hud.style.opacity = '0.85'; });
+        // ==========================================
+        // SINGLETON DRAG AND DROP ENGINE
+        // ==========================================
+        let isDragging = false;
+        let startX, startY, initLeft, initTop;
 
-            // Drag & Drop
-            let isDragging = false;
-            let startX, startY, initLeft, initTop;
-
-            hud.addEventListener('mousedown', (e) => {
-                if (e.target.closest('button, svg, path')) return;
-                isDragging = true;
-                startX = e.clientX;
-                startY = e.clientY;
-                const rect = hud.getBoundingClientRect();
-                initLeft = rect.left;
-                initTop = rect.top;
-                hud.style.cursor = 'grabbing';
-                e.preventDefault();
-            });
-
-            window.addEventListener('mousemove', (e) => {
-                if (!isDragging) return;
-                const dx = e.clientX - startX;
-                const dy = e.clientY - startY;
-                const newTop = Math.max(10, Math.min(window.innerHeight - 50, initTop + dy));
-                const newLeft = Math.max(10, Math.min(window.innerWidth - 220, initLeft + dx));
-                
-                hud.style.top = `${newTop}px`;
-                hud.style.left = `${newLeft}px`;
-                hud.style.right = 'auto';
-            });
-
-            window.addEventListener('mouseup', () => {
-                if (isDragging) {
-                    isDragging = false;
-                    hud.style.cursor = 'grab';
-                    savedHudPosition = { top: hud.style.top, left: hud.style.left };
-                    saveSetting('cs_hud_position', savedHudPosition);
-                }
-            });
-
-            hud.querySelector('.sf-play-btn').addEventListener('click', (e) => {
-                e.stopPropagation();
-                vid.paused ? vid.play() : vid.pause();
-                updateMiniHudPlayState();
-            });
-
-            hud.querySelector('.sf-rewind-btn').addEventListener('click', (e) => {
-                e.stopPropagation();
-                vid.currentTime -= 10;
-                showToast('⏪ -10s');
-            });
-
-            hud.querySelector('.sf-fwd-btn').addEventListener('click', (e) => {
-                e.stopPropagation();
-                vid.currentTime += 10;
-                showToast('⏩ +10s');
-            });
-
-            hud.querySelector('.sf-speed-btn').addEventListener('click', (e) => {
-                e.stopPropagation();
-                const speeds = [0.75, 1.0, 1.25, 1.5, 1.75, 2.0, 2.5];
-                let nextIdx = speeds.indexOf(persistentSpeed) + 1;
-                if (nextIdx >= speeds.length || nextIdx === 0) nextIdx = 0;
-                persistentSpeed = speeds[nextIdx];
-                saveSetting('cs_playback_speed', persistentSpeed);
-                enforcePersistentMedia();
-                hud.querySelector('.sf-speed-btn').innerText = `${persistentSpeed}x`;
-                showToast(`⚡ Speed: ${persistentSpeed}x`);
-            });
-
-            hud.querySelector('.sf-pip-btn').addEventListener('click', (e) => {
-                e.stopPropagation();
-                document.pictureInPictureElement ? document.exitPictureInPicture() : vid.requestPictureInPicture();
-            });
-
-            hud.querySelector('.sf-shot-btn').addEventListener('click', (e) => {
-                e.stopPropagation();
-                captureScreenshot();
-            });
-
-            document.body.appendChild(hud);
+        hud.addEventListener('mousedown', (e) => {
+            if (e.target.closest('button, svg, path')) return;
+            isDragging = true;
+            startX = e.clientX;
+            startY = e.clientY;
+            const rect = hud.getBoundingClientRect();
+            initLeft = rect.left;
+            initTop = rect.top;
+            hud.style.cursor = 'grabbing';
+            e.preventDefault();
         });
+
+        window.addEventListener('mousemove', (e) => {
+            if (!isDragging) return;
+            const dx = e.clientX - startX;
+            const dy = e.clientY - startY;
+            const newTop = Math.max(10, Math.min(window.innerHeight - 50, initTop + dy));
+            const newLeft = Math.max(10, Math.min(window.innerWidth - 220, initLeft + dx));
+            
+            hud.style.top = `${newTop}px`;
+            hud.style.left = `${newLeft}px`;
+            hud.style.right = 'auto';
+        });
+
+        window.addEventListener('mouseup', () => {
+            if (isDragging) {
+                isDragging = false;
+                hud.style.cursor = 'grab';
+                savedHudPosition = { top: hud.style.top, left: hud.style.left };
+                saveSetting('cs_hud_position', savedHudPosition);
+            }
+        });
+
+        // Dynamic Video Action Dispatchers
+        hud.querySelector('.sf-play-btn').addEventListener('click', (e) => {
+            e.stopPropagation();
+            const v = getActiveVideo();
+            if (v) {
+                v.paused ? v.play() : v.pause();
+                updateMiniHudPlayState();
+            }
+        });
+
+        hud.querySelector('.sf-rewind-btn').addEventListener('click', (e) => {
+            e.stopPropagation();
+            const v = getActiveVideo();
+            if (v) {
+                v.currentTime -= 10;
+                showToast('⏪ -10s');
+            }
+        });
+
+        hud.querySelector('.sf-fwd-btn').addEventListener('click', (e) => {
+            e.stopPropagation();
+            const v = getActiveVideo();
+            if (v) {
+                v.currentTime += 10;
+                showToast('⏩ +10s');
+            }
+        });
+
+        hud.querySelector('.sf-speed-btn').addEventListener('click', (e) => {
+            e.stopPropagation();
+            const speeds = [0.75, 1.0, 1.25, 1.5, 1.75, 2.0, 2.5];
+            let nextIdx = speeds.indexOf(persistentSpeed) + 1;
+            if (nextIdx >= speeds.length || nextIdx === 0) nextIdx = 0;
+            persistentSpeed = speeds[nextIdx];
+            saveSetting('cs_playback_speed', persistentSpeed);
+            enforcePersistentMedia();
+            updateMiniHudPlayState();
+            showToast(`⚡ Speed: ${persistentSpeed}x`);
+        });
+
+        hud.querySelector('.sf-pip-btn').addEventListener('click', (e) => {
+            e.stopPropagation();
+            const v = getActiveVideo();
+            if (v) document.pictureInPictureElement ? document.exitPictureInPicture() : v.requestPictureInPicture();
+        });
+
+        hud.querySelector('.sf-shot-btn').addEventListener('click', (e) => {
+            e.stopPropagation();
+            captureScreenshot();
+        });
+
+        document.body.appendChild(hud);
+        updateMiniHudPlayState();
     }
 
     setInterval(injectMiniHud, 2500);
 
     // =======================================================
-    // 7. SAFE & STABLE AD-SKIPPER (NO CRASHES, 500MS INTERVAL)
+    // 7. SAFE AD-SKIPPER
     // =======================================================
     setInterval(() => {
         if (!adSkipperEnabled) return;
@@ -503,7 +553,6 @@
         const vids = getAllVideos();
         vids.forEach(v => {
             if (isAdVideo(v)) {
-                // Accelerate playback cleanly without forcing currentTime (prevents buffer crashes)
                 if (v.playbackRate !== 16.0) v.playbackRate = 16.0;
                 if (!v.muted) v.muted = true;
                 v.dataset.sfIsAd = "true";
@@ -718,11 +767,12 @@
             savedHudPosition = null;
             chrome.storage.local.remove('cs_hud_position');
             chrome.storage.sync.remove('cs_hud_position');
-            document.querySelectorAll('.streamflow-mini-hud').forEach(hud => {
+            const hud = document.getElementById('streamflow-global-hud');
+            if (hud) {
                 hud.style.top = '20px';
                 hud.style.left = 'auto';
                 hud.style.right = '25px';
-            });
+            }
             showToast('🧭 HUD Position Reset to Top-Right');
         } else if (msg.action === 'TRIGGER_PIP') {
             if (v) document.pictureInPictureElement ? document.exitPictureInPicture() : v.requestPictureInPicture();
