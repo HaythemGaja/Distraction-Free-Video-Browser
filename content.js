@@ -1,5 +1,4 @@
 (function() {
-    // Default Settings
     let adSkipperEnabled = true;
     let autoNextEnabled = true;
     let autoUnmuteEnabled = true;
@@ -22,7 +21,7 @@
     let vocalFilter = null;
     let connectedVideo = null;
 
-    // User Interaction Tracker
+    // Track User Interaction
     ['click', 'keydown', 'pointerdown', 'touchstart'].forEach(evt => {
         window.addEventListener(evt, () => { hasUserInteracted = true; }, { once: true, capture: true });
     });
@@ -78,15 +77,9 @@
         window.__sfToastTimer = setTimeout(() => { if (toast) toast.remove(); }, 1800);
     }
 
-    function getAllVideos(root = document) {
-        let vids = Array.from(root.querySelectorAll('video'));
-        const allElements = root.querySelectorAll('*');
-        for (const el of allElements) {
-            if (el.shadowRoot) {
-                vids = vids.concat(getAllVideos(el.shadowRoot));
-            }
-        }
-        return vids;
+    // High-performance video scanner (No DOM tree freezing)
+    function getAllVideos() {
+        return Array.from(document.querySelectorAll('video'));
     }
 
     function getActiveVideo() {
@@ -94,16 +87,12 @@
         return vids.find(v => !v.paused && v.readyState > 0) || vids[0] || null;
     }
 
-    // =======================================================
-    // SMART AD CLASSIFIER
-    // =======================================================
+    // Safe Ad Detector
     function isAdVideo(v) {
         if (!v) return false;
         if (document.querySelector('.ad-showing, .ytp-ad-player-overlay, .ad-interrupting')) return true;
-        
         const adContainer = v.closest('.ad-container, [class*="video-ad"], [id*="player_ad"], [class*="vast-"], [class*="ima-"], .jw-ad, .vjs-ad');
         if (adContainer) return true;
-
         const src = (v.currentSrc || v.src || '').toLowerCase();
         return src.includes('/ad/') || src.includes('doubleclick') || src.includes('googleads') || src.includes('vast');
     }
@@ -145,15 +134,6 @@
             }
         }
     }, true);
-
-    const dynamicObserver = new MutationObserver(() => {
-        const vids = getAllVideos();
-        if (vids.length > 0) {
-            enforcePersistentMedia();
-            injectMiniHud();
-        }
-    });
-    dynamicObserver.observe(document.body || document.documentElement, { childList: true, subtree: true });
 
     // =======================================================
     // 2. A-B REPEAT LOOP ENGINE
@@ -342,7 +322,7 @@
     }
 
     // =======================================================
-    // 6. ALWAYS-ON-TOP DRAGGABLE ON-VIDEO MINI-HUD
+    // 6. ON-VIDEO FLOATING MINI-HUD (ALWAYS-ON-TOP & DRAGGABLE)
     // =======================================================
     function updateMiniHudPlayState() {
         const v = getActiveVideo();
@@ -371,7 +351,6 @@
             const hud = document.createElement('div');
             hud.className = 'streamflow-mini-hud';
             
-            // Fixed position with top-level z-index so it's NEVER blocked by player controls
             hud.style.cssText = `
                 position: fixed !important; 
                 top: ${savedHudPosition ? savedHudPosition.top : '20px'} !important; 
@@ -388,7 +367,7 @@
                 gap: 5px !important; 
                 align-items: center !important;
                 opacity: 0.85 !important; 
-                transition: opacity 0.2s ease, box-shadow 0.2s ease !important;
+                transition: opacity 0.2s ease !important;
                 font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
                 box-shadow: 0 8px 30px rgba(0,0,0,0.75) !important; 
                 user-select: none !important;
@@ -396,47 +375,33 @@
             `;
 
             hud.innerHTML = `
-                <!-- Play/Pause Button -->
-                <button class="sf-hud-btn sf-play-btn" style="background:#a8c7fa; border:none; color:#041e49; width:26px; height:26px; border-radius:50%; display:flex; align-items:center; justify-content:center; cursor:pointer; outline:none; padding:4px; transition:0.15s;" title="Play / Pause (Space)">
+                <button class="sf-hud-btn sf-play-btn" style="background:#a8c7fa; border:none; color:#041e49; width:26px; height:26px; border-radius:50%; display:flex; align-items:center; justify-content:center; cursor:pointer; outline:none; padding:4px;" title="Play / Pause (Space)">
                     <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="${vid.paused ? 'M8 5v14l11-7z' : 'M6 19h4V5H6v14zm8-14v14h4V5h-4z'}"/></svg>
                 </button>
-
-                <!-- Rewind -10s -->
-                <button class="sf-hud-btn sf-rewind-btn" style="background:transparent; border:none; color:#e8eaed; width:26px; height:26px; border-radius:50%; display:flex; align-items:center; justify-content:center; cursor:pointer; outline:none; padding:4px; transition:0.15s;" title="Rewind -10s">
+                <button class="sf-hud-btn sf-rewind-btn" style="background:transparent; border:none; color:#e8eaed; width:26px; height:26px; border-radius:50%; display:flex; align-items:center; justify-content:center; cursor:pointer; outline:none; padding:4px;" title="Rewind -10s">
                     <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor"><path d="M12.5 8c-2.65 0-5.05 1-6.9 2.6L2 7v9h9l-3.62-3.62c1.39-1.2 3.16-1.88 5.12-1.88 3.54 0 6.55 2.31 7.6 5.5l2.37-.78C21.08 11.03 17.15 8 12.5 8z"/></svg>
                 </button>
-
-                <!-- Fast Forward +10s -->
-                <button class="sf-hud-btn sf-fwd-btn" style="background:transparent; border:none; color:#e8eaed; width:26px; height:26px; border-radius:50%; display:flex; align-items:center; justify-content:center; cursor:pointer; outline:none; padding:4px; transition:0.15s;" title="Fast Forward +10s">
+                <button class="sf-hud-btn sf-fwd-btn" style="background:transparent; border:none; color:#e8eaed; width:26px; height:26px; border-radius:50%; display:flex; align-items:center; justify-content:center; cursor:pointer; outline:none; padding:4px;" title="Fast Forward +10s">
                     <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor"><path d="M11.5 8c2.65 0 5.05 1 6.9 2.6L22 7v9h-9l3.62-3.62c-1.39-1.2-3.16-1.88-5.12-1.88-3.54 0-6.55 2.31-7.6 5.5l-2.37-.78C2.92 11.03 6.85 8 11.5 8z"/></svg>
                 </button>
-
-                <!-- Speed Selector Pill -->
-                <button class="sf-hud-btn sf-speed-btn" style="background:rgba(0,242,254,0.14); color:#00f2fe; border:1px solid rgba(0,242,254,0.4); padding:2px 8px; border-radius:14px; font-size:11px; font-weight:800; cursor:pointer; outline:none; transition:0.15s;" title="Click to Cycle Speed">${persistentSpeed}x</button>
-
-                <!-- PiP Button -->
-                <button class="sf-hud-btn sf-pip-btn" style="background:transparent; border:none; color:#e8eaed; width:26px; height:26px; border-radius:50%; display:flex; align-items:center; justify-content:center; cursor:pointer; outline:none; padding:4px; transition:0.15s;" title="Picture-in-Picture">
+                <button class="sf-hud-btn sf-speed-btn" style="background:rgba(0,242,254,0.14); color:#00f2fe; border:1px solid rgba(0,242,254,0.4); padding:2px 8px; border-radius:14px; font-size:11px; font-weight:800; cursor:pointer; outline:none;" title="Click to Cycle Speed">${persistentSpeed}x</button>
+                <button class="sf-hud-btn sf-pip-btn" style="background:transparent; border:none; color:#e8eaed; width:26px; height:26px; border-radius:50%; display:flex; align-items:center; justify-content:center; cursor:pointer; outline:none; padding:4px;" title="Picture-in-Picture">
                     <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor"><path d="M19 11h-8v6h8v-6zm4 8V5c0-1.1-.9-2-2-2H3c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2zm-2 0H3V5h18v14z"/></svg>
                 </button>
-                
-                <!-- Screenshot Button -->
-                <button class="sf-hud-btn sf-shot-btn" style="background:transparent; border:none; color:#e8eaed; width:26px; height:26px; border-radius:50%; display:flex; align-items:center; justify-content:center; cursor:pointer; outline:none; padding:4px; transition:0.15s;" title="Take Screenshot (S)">
+                <button class="sf-hud-btn sf-shot-btn" style="background:transparent; border:none; color:#e8eaed; width:26px; height:26px; border-radius:50%; display:flex; align-items:center; justify-content:center; cursor:pointer; outline:none; padding:4px;" title="Take Screenshot (S)">
                     <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor"><path d="M12 15.2a3.2 3.2 0 1 0 0-6.4 3.2 3.2 0 0 0 0 6.4zm8-9.2h-3.2L15 4H9L7.2 6H4c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm0 12H4V8h3.9l1.8-2h4.6l1.8 2H20v10z"/></svg>
                 </button>
             `;
 
-            // Hover opacity
             hud.addEventListener('mouseenter', () => { hud.style.opacity = '1'; });
             hud.addEventListener('mouseleave', () => { hud.style.opacity = '0.85'; });
 
-            // ==========================================
-            // DRAG AND DROP ENGINE
-            // ==========================================
+            // Drag & Drop
             let isDragging = false;
             let startX, startY, initLeft, initTop;
 
             hud.addEventListener('mousedown', (e) => {
-                if (e.target.closest('button, svg, path')) return; // Allow clicking buttons without dragging
+                if (e.target.closest('button, svg, path')) return;
                 isDragging = true;
                 startX = e.clientX;
                 startY = e.clientY;
@@ -468,7 +433,6 @@
                 }
             });
 
-            // Button actions
             hud.querySelector('.sf-play-btn').addEventListener('click', (e) => {
                 e.stopPropagation();
                 vid.paused ? vid.play() : vid.pause();
@@ -495,7 +459,7 @@
                 persistentSpeed = speeds[nextIdx];
                 saveSetting('cs_playback_speed', persistentSpeed);
                 enforcePersistentMedia();
-                updateMiniHudPlayState();
+                hud.querySelector('.sf-speed-btn').innerText = `${persistentSpeed}x`;
                 showToast(`⚡ Speed: ${persistentSpeed}x`);
             });
 
@@ -513,10 +477,10 @@
         });
     }
 
-    setInterval(injectMiniHud, 1800);
+    setInterval(injectMiniHud, 2500);
 
     // =======================================================
-    // 7. ULTRA-FAST AD-SKIPPER (16X SPEED + AUTO-MUTE + TOGGLE)
+    // 7. SAFE & STABLE AD-SKIPPER (NO CRASHES, 500MS INTERVAL)
     // =======================================================
     setInterval(() => {
         if (!adSkipperEnabled) return;
@@ -528,27 +492,21 @@
             '.ytp-ad-overlay-close-button', '.ytp-ad-preview-container', '.jw-skip', '.vast-skip-button'
         ];
         
-        // 1. Instant click on any visible skip button (<150ms)
         skipSelectors.forEach(s => {
             document.querySelectorAll(s).forEach(btn => {
-                try {
-                    btn.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
-                    btn.click();
-                } catch(e) {}
+                if (btn && btn.offsetParent !== null) {
+                    try { btn.click(); } catch(e) {}
+                }
             });
         });
         
-        // 2. Maximize video ad speed to 16.0x (Spec Maximum) and mute
         const vids = getAllVideos();
         vids.forEach(v => {
             if (isAdVideo(v)) {
-                v.playbackRate = 16.0;
-                v.muted = true;
+                // Accelerate playback cleanly without forcing currentTime (prevents buffer crashes)
+                if (v.playbackRate !== 16.0) v.playbackRate = 16.0;
+                if (!v.muted) v.muted = true;
                 v.dataset.sfIsAd = "true";
-                // Skip ahead through ad timeline where supported
-                if (v.duration && v.duration > 0 && v.currentTime < v.duration - 0.2) {
-                    try { v.currentTime = v.duration - 0.1; } catch(e) {}
-                }
             } else if (v.dataset.sfIsAd === "true") {
                 delete v.dataset.sfIsAd;
                 v.playbackRate = persistentSpeed;
@@ -556,7 +514,7 @@
                 v.volume = globalVolume;
             }
         });
-    }, 150);
+    }, 500);
 
     // =======================================================
     // 8. SAFE AUTO-UNMUTE
@@ -685,7 +643,11 @@
             e.preventDefault(); captureScreenshot();
         }
         // Space & Fullscreen
-        else if (e.code === 'Space') { e.preventDefault(); v.paused ? v.play() : v.pause(); }
+        else if (e.code === 'Space') { 
+            e.preventDefault(); 
+            v.paused ? v.play() : v.pause(); 
+            updateMiniHudPlayState();
+        }
         else if (e.code === 'KeyF') { e.preventDefault(); (v.parentElement || v).requestFullscreen(); }
     });
 
