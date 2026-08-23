@@ -1,13 +1,12 @@
 {
   "manifest_version": 3,
-  "name": "StreamFlow Pro - Smart Video & Speed Suite",
-  "version": "2.6.0",
-  "description": "Universal video player suite with persistent speed memory, video downloader, A-B loop, instant ad-skipping, audio EQ, and Watch Later.",
+  "name": "StreamFlow Pro - Smart Video Suite",
+  "version": "2.8.0",
+  "description": "Universal video suite with persistent speed memory, A-B loop, instant ad-skipping, audio EQ, and Watch Later.",
   "permissions": [
     "storage",
     "activeTab",
-    "scripting",
-    "downloads"
+    "scripting"
   ],
   "host_permissions": [
     "<all_urls>"
@@ -19,11 +18,17 @@
     {
       "matches": ["<all_urls>"],
       "js": ["content.js"],
-      "run_at": "document_end"
+      "run_at": "document_end",
+      "all_frames": true,
+      "match_about_blank": true
     }
   ],
   "action": {
     "default_popup": "popup.html",
-    "default_title": "StreamFlow Pro"
+    "default_title": "StreamFlow Pro",
+    "default_icon": "icon.svg"
+  },
+  "icons": {
+    "128": "icon.svg"
   }
 }

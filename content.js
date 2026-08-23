@@ -20,12 +20,12 @@
     let vocalFilter = null;
     let connectedVideo = null;
 
-    // Track User Interaction for Safe Audio Autoplay per Chrome Policy
+    // Track User Interaction
     ['click', 'keydown', 'pointerdown', 'touchstart'].forEach(evt => {
         window.addEventListener(evt, () => { hasUserInteracted = true; }, { once: true, capture: true });
     });
 
-    // Helper: Safe Multi-Storage Loader
+    // Load Settings
     function loadAllSettings(callback) {
         const keys = [
             'cs_auto_next', 'cs_auto_unmute', 'cs_playback_speed', 'cs_global_volume',
@@ -55,7 +55,6 @@
         chrome.storage.sync.set(obj);
     }
 
-    // Initialize Settings
     loadAllSettings(() => {
         enforcePersistentMedia();
         applyAmbientGlow();
@@ -74,61 +73,31 @@
         window.__sfToastTimer = setTimeout(() => { if (toast) toast.remove(); }, 1800);
     }
 
+    // =======================================================
+    // DEEP VIDEO SCANNER (Standard DOM + Shadow DOM)
+    // =======================================================
+    function getAllVideos(root = document) {
+        let vids = Array.from(root.querySelectorAll('video'));
+        const allElements = root.querySelectorAll('*');
+        for (const el of allElements) {
+            if (el.shadowRoot) {
+                vids = vids.concat(getAllVideos(el.shadowRoot));
+            }
+        }
+        return vids;
+    }
+
     function getActiveVideo() {
-        const vids = Array.from(document.querySelectorAll('video'));
+        const vids = getAllVideos();
         return vids.find(v => !v.paused && v.readyState > 0) || vids[0] || null;
     }
 
     // =======================================================
-    // 1. VIDEO DOWNLOAD ENGINE
-    // =======================================================
-    function downloadActiveVideo() {
-        const v = getActiveVideo();
-        if (!v) return showToast('⚠️ No active video detected to download', '#ff5f56');
-
-        // Extract media source URL
-        let mediaUrl = v.currentSrc || v.src;
-        if (!mediaUrl) {
-            const srcEl = v.querySelector('source');
-            if (srcEl) mediaUrl = srcEl.src;
-        }
-
-        // Format clean filename
-        let cleanTitle = (document.title || 'Video').replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 40);
-        let filename = `${cleanTitle}.mp4`;
-
-        if (mediaUrl && (mediaUrl.startsWith('http://') || mediaUrl.startsWith('https://'))) {
-            showToast('📥 Starting Video Download...', '#2ecc71');
-            chrome.runtime.sendMessage({
-                action: 'DOWNLOAD_MEDIA',
-                url: mediaUrl,
-                filename: filename
-            }, (res) => {
-                if (!res || !res.success) {
-                    // Fallback to in-browser anchor trigger
-                    const a = document.createElement('a');
-                    a.href = mediaUrl;
-                    a.download = filename;
-                    a.target = '_blank';
-                    document.body.appendChild(a);
-                    a.click();
-                    a.remove();
-                }
-            });
-        } else if (mediaUrl && mediaUrl.startsWith('blob:')) {
-            // Segmented streaming fallback notification
-            showToast('⚠️ Video uses protected chunk streaming (DASH/HLS)', '#f5b041');
-            window.open(mediaUrl, '_blank');
-        } else {
-            showToast('⚠️ Direct video stream URL not found', '#ff5f56');
-        }
-    }
-
-    // =======================================================
-    // 2. SPEED & VOLUME PERSISTENCE ENGINE
+    // 1. SPEED & VOLUME PERSISTENCE ENGINE
     // =======================================================
     function enforcePersistentMedia() {
-        document.querySelectorAll('video').forEach(v => {
+        const vids = getAllVideos();
+        vids.forEach(v => {
             if (!document.querySelector('.ad-showing')) {
                 if (v.playbackRate !== persistentSpeed) v.playbackRate = persistentSpeed;
                 if (Math.abs(v.volume - globalVolume) > 0.05) v.volume = globalVolume;
@@ -140,7 +109,9 @@
         if (e.target && e.target.tagName === 'VIDEO' && !document.querySelector('.ad-showing')) {
             e.target.playbackRate = persistentSpeed;
             e.target.volume = globalVolume;
-            initAudioEqualizer(e.target);
+            if (!location.hostname.includes('tiktok.com')) {
+                initAudioEqualizer(e.target);
+            }
         }
     }, true);
 
@@ -154,8 +125,18 @@
         }
     }, true);
 
+    // Watch for dynamically loaded video players (JWPlayer, VideoJS, Plyr embeds)
+    const dynamicObserver = new MutationObserver(() => {
+        const vids = getAllVideos();
+        if (vids.length > 0) {
+            enforcePersistentMedia();
+            injectMiniHud();
+        }
+    });
+    dynamicObserver.observe(document.body || document.documentElement, { childList: true, subtree: true });
+
     // =======================================================
-    // 3. A-B REPEAT LOOP ENGINE
+    // 2. A-B REPEAT LOOP ENGINE
     // =======================================================
     function setPointA() {
         const v = getActiveVideo();
@@ -200,7 +181,7 @@
     }, true);
 
     // =======================================================
-    // 4. FRAME-BY-FRAME STEPPER
+    // 3. FRAME-BY-FRAME STEPPER
     // =======================================================
     function stepFrame(forward = true) {
         const v = getActiveVideo();
@@ -212,7 +193,7 @@
     }
 
     // =======================================================
-    // 5. TIMESTAMPED HD SCREENSHOT
+    // 4. TIMESTAMPED HD SCREENSHOT
     // =======================================================
     function captureScreenshot() {
         const v = getActiveVideo();
@@ -240,7 +221,7 @@
     }
 
     // =======================================================
-    // 6. AUDIO EQUALIZER
+    // 5. AUDIO EQUALIZER (WEB AUDIO API)
     // =======================================================
     function initAudioEqualizer(video) {
         if (!hasUserInteracted) return;
@@ -308,7 +289,7 @@
     }
 
     // =======================================================
-    // 7. AMBIENT GLOW BACKLIGHT
+    // 6. AMBIENT GLOW BACKLIGHT
     // =======================================================
     function applyAmbientGlow() {
         let styleEl = document.getElementById('streamflow-glow-style');
@@ -330,7 +311,7 @@
     }
 
     // =======================================================
-    // 8. YOUTUBE RESOLUTION LOCKER
+    // 7. YOUTUBE RESOLUTION LOCKER
     // =======================================================
     function forceYouTubeMaxResolution() {
         try {
@@ -347,7 +328,7 @@
     }
 
     // =======================================================
-    // 9. ON-VIDEO FLOATING MINI-HUD (WITH DOWNLOAD BUTTON)
+    // 8. ON-VIDEO FLOATING MINI-HUD (WORKS IN ALL EMBEDS)
     // =======================================================
     function injectMiniHud() {
         if (!miniHudEnabled) {
@@ -355,7 +336,10 @@
             return;
         }
 
-        document.querySelectorAll('video').forEach(vid => {
+        if (location.hostname.includes('tiktok.com')) return;
+
+        const vids = getAllVideos();
+        vids.forEach(vid => {
             const container = vid.parentElement;
             if (!container || container.querySelector('.streamflow-mini-hud')) return;
 
@@ -376,7 +360,6 @@
             hud.innerHTML = `
                 <button class="sf-hud-btn sf-speed-btn" style="background:#222838; color:#00f2fe; border:none; padding:2px 6px; border-radius:12px; font-size:10px; font-weight:bold; cursor:pointer;" title="Click to Cycle Speed">${persistentSpeed}x</button>
                 <button class="sf-hud-btn sf-fwd-btn" style="background:none; border:none; color:#fff; font-size:12px; cursor:pointer;" title="Forward +10s">⏩</button>
-                <button class="sf-hud-btn sf-dl-btn" style="background:none; border:none; color:#2ecc71; font-size:12px; cursor:pointer;" title="Download Video (D)">📥</button>
                 <button class="sf-hud-btn sf-pip-btn" style="background:none; border:none; color:#fff; font-size:12px; cursor:pointer;" title="Picture-in-Picture">🪟</button>
                 <button class="sf-hud-btn sf-shot-btn" style="background:none; border:none; color:#fff; font-size:12px; cursor:pointer;" title="Take Screenshot (S)">📸</button>
                 <button class="sf-hud-btn sf-loop-btn" style="background:none; border:none; color:#fff; font-size:12px; cursor:pointer;" title="A-B Loop (Click: A, Shift+Click: B)">🔁</button>
@@ -403,11 +386,6 @@
                 showToast('⏩ +10s');
             });
 
-            hud.querySelector('.sf-dl-btn').addEventListener('click', (e) => {
-                e.stopPropagation();
-                downloadActiveVideo();
-            });
-
             hud.querySelector('.sf-pip-btn').addEventListener('click', (e) => {
                 e.stopPropagation();
                 document.pictureInPictureElement ? document.exitPictureInPicture() : vid.requestPictureInPicture();
@@ -429,17 +407,15 @@
         });
     }
 
-    setInterval(injectMiniHud, 2000);
-
     // =======================================================
-    // 10. INSTANT AD-SKIPPER (<150ms Action)
+    // 9. INSTANT AD-SKIPPER (<150ms Action)
     // =======================================================
     setInterval(() => {
         const skipSelectors = [
             '.ytp-ad-skip-button', '.ytp-ad-skip-button-modern', '.ytp-skip-ad-button', 
             'button.ytp-ad-skip-button-modern', '.ytp-ad-skip-button-container button',
             '[id^="skip-button"] button', '[aria-label*="Skip Ad" i]', '.videoAdUiSkipButton', 
-            '.ytp-ad-overlay-close-button', '.ytp-ad-preview-container'
+            '.ytp-ad-overlay-close-button', '.ytp-ad-preview-container', '.jw-skip'
         ];
         skipSelectors.forEach(s => {
             document.querySelectorAll(s).forEach(btn => {
@@ -451,7 +427,7 @@
         });
         
         const adShowing = document.querySelector('.ad-showing, .ytp-ad-player-overlay');
-        const vids = document.querySelectorAll('video');
+        const vids = getAllVideos();
         if (adShowing) {
             vids.forEach(v => { v.playbackRate = 16.0; v.muted = true; });
         } else {
@@ -465,33 +441,34 @@
     }, 150);
 
     // =======================================================
-    // 11. SAFE AUTO-UNMUTE
+    // 10. SAFE AUTO-UNMUTE
     // =======================================================
     setInterval(() => {
         if (!autoUnmuteEnabled) return;
         const userActive = (navigator.userActivation && navigator.userActivation.hasBeenActive) || hasUserInteracted;
         if (!userActive) return;
 
-        document.querySelectorAll('video').forEach(v => {
+        const vids = getAllVideos();
+        vids.forEach(v => {
             if (v.muted && !document.querySelector('.ad-showing')) {
                 try {
                     v.muted = false;
                 } catch(e) {}
             }
         });
-        document.querySelectorAll('[aria-label*="unmute" i], [aria-label*="Unmute" i]').forEach(b => {
+        document.querySelectorAll('[aria-label*="unmute" i], [aria-label*="Unmute" i], .jw-icon-volume').forEach(b => {
             try { b.click(); } catch(e) {}
         });
     }, 800);
 
     // =======================================================
-    // 12. CONTINUOUS PIP & AUTO-NEXT
+    // 11. CONTINUOUS PIP & AUTO-NEXT
     // =======================================================
     document.addEventListener('ended', async (e) => {
         if (!autoNextEnabled) return;
         if (e.target && e.target.tagName === 'VIDEO') {
             const wasInPiP = document.pictureInPictureElement === e.target;
-            const vids = Array.from(document.querySelectorAll('video'));
+            const vids = getAllVideos();
             const currentIdx = vids.indexOf(e.target);
 
             if (currentIdx !== -1 && currentIdx + 1 < vids.length) {
@@ -520,20 +497,15 @@
     }, true);
 
     // =======================================================
-    // 13. KEYBOARD SHORTCUTS (WITH 'D' FOR DOWNLOAD)
+    // 12. KEYBOARD SHORTCUTS
     // =======================================================
     window.addEventListener('keydown', (e) => {
         if (['INPUT', 'TEXTAREA'].includes(document.activeElement.tagName) || document.activeElement.isContentEditable) return;
         const v = getActiveVideo();
         if (!v) return;
 
-        // Download Video: Key 'D'
-        if ((e.key === 'd' || e.key === 'D') && !e.ctrlKey && !e.metaKey && !e.shiftKey) {
-            e.preventDefault();
-            downloadActiveVideo();
-        }
         // Reset Speed to 1.0x: Key 'R'
-        else if ((e.key === 'r' || e.key === 'R') && !e.ctrlKey && !e.metaKey) {
+        if ((e.key === 'r' || e.key === 'R') && !e.ctrlKey && !e.metaKey) {
             e.preventDefault();
             persistentSpeed = 1.0;
             saveSetting('cs_playback_speed', persistentSpeed);
@@ -608,38 +580,29 @@
     });
 
     // =======================================================
-    // 14. MESSAGE HANDLERS FROM POPUP
+    // 13. MESSAGE HANDLERS FROM POPUP
     // =======================================================
     chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+        const v = getActiveVideo();
+
         if (msg.action === 'GET_METADATA') {
-            const activeVid = getActiveVideo();
-            let u = window.location.href;
+            if (!v && window.self !== window.top) return; // Only respond if frame has video or is top
+
+            let u = window.top.location.href;
             let t = document.title || 'Saved Video';
-            let s = 'Web';
+            let s = location.hostname.replace('www.', '').split('.')[0];
 
             if (location.hostname.includes('youtube.com')) {
                 s = 'YouTube';
                 const yt = document.querySelector('h1.ytd-watch-metadata, #title h1, h1.title');
                 if (yt && yt.innerText) t = yt.innerText.trim();
-                if (activeVid) {
-                    const link = activeVid.closest('ytd-rich-item-renderer, ytd-video-renderer, ytd-reel-video-renderer')?.querySelector('a#thumbnail, a[href^="/watch"], a[href^="/shorts"]');
-                    if (link && link.href) u = link.href;
-                }
             } else if (location.hostname.includes('facebook.com')) {
                 s = 'Facebook';
-                if (activeVid) {
-                    const card = activeVid.closest('[role="article"], div[data-pagelet*="Feed"] > div, div[data-pagelet^="FeedUnit"]');
-                    if (card) {
-                        const link = card.querySelector('a[href*="/watch"], a[href*="/reel/"], a[href*="/videos/"]');
-                        if (link && link.href) u = link.href;
-                        const cap = card.querySelector('div[data-ad-preview="message"], div[dir="auto"], h2, strong');
-                        if (cap && cap.innerText) t = cap.innerText.trim().split('\n')[0].slice(0, 60);
-                    }
-                }
+            } else if (location.hostname.includes('hentaihaven')) {
+                s = 'HentaiHaven';
             }
+
             sendResponse({ url: u, title: t, site: s });
-        } else if (msg.action === 'TRIGGER_DOWNLOAD') {
-            downloadActiveVideo();
         } else if (msg.action === 'UPDATE_SETTINGS') {
             autoNextEnabled = msg.settings.autoNextEnabled;
             autoUnmuteEnabled = msg.settings.autoUnmuteEnabled;
@@ -669,23 +632,21 @@
             }
             sendResponse({ status: 'ok' });
         } else if (msg.action === 'TRIGGER_PIP') {
-            const v = getActiveVideo();
             if (v) document.pictureInPictureElement ? document.exitPictureInPicture() : v.requestPictureInPicture();
         } else if (msg.action === 'TRIGGER_FOCUS') {
-            const v = getActiveVideo();
             if (v) document.fullscreenElement ? document.exitFullscreen() : (v.parentElement || v).requestFullscreen();
         } else if (msg.action === 'TRIGGER_SCREENSHOT') {
-            captureScreenshot();
+            if (v) captureScreenshot();
         } else if (msg.action === 'SET_AB_A') {
-            setPointA();
+            if (v) setPointA();
         } else if (msg.action === 'SET_AB_B') {
-            setPointB();
+            if (v) setPointB();
         } else if (msg.action === 'CLEAR_AB') {
-            toggleClearLoop();
+            if (v) toggleClearLoop();
         } else if (msg.action === 'STEP_FRAME_FWD') {
-            stepFrame(true);
+            if (v) stepFrame(true);
         } else if (msg.action === 'STEP_FRAME_BACK') {
-            stepFrame(false);
+            if (v) stepFrame(false);
         }
         return true;
     });
