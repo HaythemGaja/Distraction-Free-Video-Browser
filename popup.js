@@ -42,7 +42,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (res) {
                     gmcDomain.innerText = res.hostname || 'Web Video';
                     gmcTitle.innerText = res.title || 'Video Player';
-                    btnPlayPause.innerText = res.paused ? '▶' : '⏸';
+                    
+                    const svgPath = btnPlayPause.querySelector('svg path');
+                    if (svgPath) {
+                        svgPath.setAttribute('d', res.paused ? 'M8 5v14l11-7z' : 'M6 19h4V5H6v14zm8-14v14h4V5h-4z');
+                    }
 
                     durationSec = res.duration || 0;
                     timeDuration.innerText = formatTime(durationSec);
@@ -57,7 +61,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     pollLiveMedia();
-    setInterval(pollLiveMedia, 600);
+    setInterval(pollLiveMedia, 500);
 
     // 2. Transport Button Controls
     btnPlayPause.addEventListener('click', () => {
@@ -198,10 +202,6 @@ document.addEventListener('DOMContentLoaded', () => {
         saveSettings();
     });
 
-    document.getElementById('btn-reset-hud').addEventListener('click', () => {
-        sendTabAction('RESET_HUD_POS');
-    });
-
     // Tool Actions
     function sendTabAction(action, data = {}) {
         chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
@@ -223,14 +223,14 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // Watch Later Queue Renderer
+    // 4. WATCH LATER QUEUE RENDERER
     function renderWatchLater() {
         wlCount.innerText = watchLaterList.length;
         chrome.runtime.sendMessage({ type: 'UPDATE_BADGE', count: watchLaterList.length });
         wlList.innerHTML = '';
 
         if (watchLaterList.length === 0) {
-            wlList.innerHTML = '<div style="color:#888; text-align:center; padding:8px; font-size:10px;">Queue is empty.</div>';
+            wlList.innerHTML = '<div style="color:#8a92a6; text-align:center; padding:12px; font-size:11px;">Queue is empty.<br>Click + Save Video to bookmark!</div>';
             return;
         }
 
@@ -239,6 +239,10 @@ document.addEventListener('DOMContentLoaded', () => {
             el.className = 'wl-item';
             el.innerHTML = `
                 <div class="wl-title" title="${item.title}">${item.title}</div>
+                <div style="font-size:9px; color:#8a92a6; display:flex; justify-content:space-between;">
+                    <span>📅 ${item.date}</span>
+                    <span style="color:var(--gmc-blue); font-weight:bold;">${item.site || 'Web'}</span>
+                </div>
                 <div class="wl-actions">
                     <button class="wl-btn-play">▶ Play</button>
                     <button class="wl-btn-del">✕</button>
@@ -256,31 +260,42 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    // 5. BULLETPROOF "SAVE VIDEO" HANDLER
     document.getElementById('btn-save-wl').addEventListener('click', (e) => {
         e.stopPropagation();
         chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
             if (!tabs[0]) return;
+
             chrome.tabs.sendMessage(tabs[0].id, { action: 'GET_METADATA' }, (res) => {
-                let finalUrl = (res && res.url) || tabs[0].url;
-                let finalTitle = (res && res.title) || tabs[0].title;
+                let finalUrl = (res && res.url) || tabs[0].url || '';
+                let finalTitle = (res && res.title) || tabs[0].title || 'Saved Video';
                 let site = (res && res.site) || 'Web';
 
+                if (!finalUrl || finalUrl === 'about:blank' || finalUrl.startsWith('chrome://')) {
+                    alert('⚠️ Please open or play a video first!');
+                    return;
+                }
+
+                // Check duplicate
                 if (watchLaterList.some(i => i.url === finalUrl)) {
-                    return alert('Video already in Watch Later!');
+                    alert('ℹ️ Video is already in your Watch Later queue!');
+                    wlContainer.classList.add('open');
+                    return;
                 }
 
                 const newItem = {
                     id: Date.now(),
-                    title: finalTitle,
+                    title: finalTitle.slice(0, 65),
                     url: finalUrl,
                     site: site,
                     date: new Date().toLocaleDateString()
                 };
 
                 watchLaterList.unshift(newItem);
-                chrome.storage.local.set({ cs_watch_later: watchLaterList });
-                renderWatchLater();
-                wlContainer.classList.add('open');
+                chrome.storage.local.set({ cs_watch_later: watchLaterList }, () => {
+                    renderWatchLater();
+                    wlContainer.classList.add('open');
+                });
             });
         });
     });

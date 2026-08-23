@@ -1,5 +1,4 @@
 (function() {
-    // Default Settings
     let adSkipperEnabled = true;
     let autoNextEnabled = true;
     let autoUnmuteEnabled = true;
@@ -11,22 +10,17 @@
     let forceHighResEnabled = true;
     let hasUserInteracted = false;
 
-    // A-B Repeat Loop State
     let abLoop = { a: null, b: null, active: false };
-
-    // Audio Equalizer State
     let audioCtx = null;
     let gainNode = null;
     let bassFilter = null;
     let vocalFilter = null;
     let hudFadeTimer = null;
 
-    // Track User Interaction
     ['click', 'keydown', 'pointerdown', 'touchstart'].forEach(evt => {
         window.addEventListener(evt, () => { hasUserInteracted = true; }, { once: true, capture: true });
     });
 
-    // Multi-Storage Loader
     function loadAllSettings(callback) {
         const keys = [
             'cs_ad_skipper_enabled', 'cs_auto_next', 'cs_auto_unmute', 'cs_playback_speed',
@@ -94,9 +88,7 @@
         return src.includes('/ad/') || src.includes('doubleclick') || src.includes('googleads') || src.includes('vast');
     }
 
-    // =======================================================
-    // 1. SPEED & VOLUME PERSISTENCE
-    // =======================================================
+    // 1. Playback Persistence
     function enforcePersistentMedia() {
         const vids = getAllVideos();
         vids.forEach(v => {
@@ -107,7 +99,6 @@
         });
     }
 
-    // CREATE & SHOW HUD ON VIDEO PLAY EVENT
     document.addEventListener('play', (e) => {
         if (e.target && e.target.tagName === 'VIDEO' && !isAdVideo(e.target)) {
             e.target.playbackRate = persistentSpeed;
@@ -115,8 +106,7 @@
             if (!location.hostname.includes('tiktok.com')) {
                 initAudioEqualizer(e.target);
             }
-            // Center HUD over this playing video
-            renderCenterHudOnVideo(e.target);
+            renderUpperCenterHudOnVideo(e.target);
         }
     }, true);
 
@@ -134,9 +124,7 @@
         }
     }, true);
 
-    // =======================================================
-    // 2. A-B REPEAT LOOP ENGINE
-    // =======================================================
+    // 2. A-B Repeat Loop
     function setPointA() {
         const v = getActiveVideo();
         if (!v) return;
@@ -182,9 +170,7 @@
         }
     }, true);
 
-    // =======================================================
-    // 3. FRAME STEPPER & HD SCREENSHOT
-    // =======================================================
+    // 3. Frame Stepper & Screenshot
     function stepFrame(forward = true) {
         const v = getActiveVideo();
         if (!v) return;
@@ -219,9 +205,7 @@
         }
     }
 
-    // =======================================================
-    // 4. AUDIO EQUALIZER
-    // =======================================================
+    // 4. Equalizer
     function initAudioEqualizer(video) {
         if (!hasUserInteracted || !video || video.__sfAudioConnected) return;
 
@@ -284,9 +268,7 @@
         }
     }
 
-    // =======================================================
-    // 5. AMBIENT GLOW & RESOLUTION LOCK
-    // =======================================================
+    // 5. Ambient Glow & Resolution Lock
     function applyAmbientGlow() {
         let styleEl = document.getElementById('streamflow-glow-style');
         if (!ambientGlowEnabled) {
@@ -320,22 +302,23 @@
         } catch (e) {}
     }
 
-    // =======================================================
-    // 6. CENTERED ON-VIDEO HUD (CREATED ON PLAY)
-    // =======================================================
-    function positionHudCenter(vid) {
-        const hud = document.getElementById('streamflow-center-hud');
+    // 6. Upper-Center HUD
+    function positionHudUpperCenter(vid) {
+        const hud = document.getElementById('streamflow-upper-center-hud');
         if (!hud || !vid) return;
 
         const rect = vid.getBoundingClientRect();
         if (rect.width === 0 || rect.height === 0) return;
 
-        hud.style.top = `${rect.top + rect.height / 2}px`;
-        hud.style.left = `${rect.left + rect.width / 2}px`;
+        const topPos = Math.max(10, rect.top + 16);
+        const leftPos = rect.left + (rect.width / 2);
+
+        hud.style.top = `${topPos}px`;
+        hud.style.left = `${leftPos}px`;
     }
 
-    function showCenterHud(temporary = true) {
-        const hud = document.getElementById('streamflow-center-hud');
+    function showUpperCenterHud(temporary = true) {
+        const hud = document.getElementById('streamflow-upper-center-hud');
         if (!hud) return;
 
         hud.style.opacity = '1';
@@ -354,7 +337,7 @@
     }
 
     function updateMiniHudPlayState() {
-        const hud = document.getElementById('streamflow-center-hud');
+        const hud = document.getElementById('streamflow-upper-center-hud');
         if (!hud) return;
         const v = getActiveVideo();
         const isPaused = v ? v.paused : true;
@@ -374,34 +357,33 @@
         }
 
         if (isPaused) {
-            showCenterHud(false); // Stay visible while paused
+            showUpperCenterHud(false);
         } else {
-            showCenterHud(true);
+            showUpperCenterHud(true);
         }
     }
 
-    function renderCenterHudOnVideo(vid) {
+    function renderUpperCenterHudOnVideo(vid) {
         if (!miniHudEnabled || location.hostname.includes('tiktok.com') || isAdVideo(vid)) return;
 
-        let hud = document.getElementById('streamflow-center-hud');
+        let hud = document.getElementById('streamflow-upper-center-hud');
         if (!hud) {
             hud = document.createElement('div');
-            hud.id = 'streamflow-center-hud';
-            hud.className = 'streamflow-center-hud';
+            hud.id = 'streamflow-upper-center-hud';
+            hud.className = 'streamflow-upper-center-hud';
             
-            // Fixed dead-center positioning over the video
             hud.style.cssText = `
                 position: fixed !important; 
-                top: 50% !important; 
+                top: 20px !important; 
                 left: 50% !important; 
-                transform: translate(-50%, -50%) !important;
+                transform: translate(-50%, 0) !important;
                 z-index: 2147483647 !important;
                 background: rgba(18, 21, 30, 0.92) !important; 
                 backdrop-filter: blur(14px) !important; 
                 -webkit-backdrop-filter: blur(14px) !important;
                 border: 1px solid rgba(138, 180, 248, 0.35) !important; 
                 border-radius: 30px !important;
-                padding: 6px 12px !important; 
+                padding: 5px 12px !important; 
                 display: flex !important; 
                 gap: 6px !important; 
                 align-items: center !important;
@@ -409,50 +391,35 @@
                 pointer-events: none !important;
                 transition: opacity 0.25s ease, transform 0.25s ease !important;
                 font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
-                box-shadow: 0 8px 30px rgba(0,0,0,0.85) !important; 
+                box-shadow: 0 8px 30px rgba(0,0,0,0.8) !important; 
                 user-select: none !important;
             `;
 
             hud.innerHTML = `
-                <!-- Play/Pause -->
                 <button class="sf-hud-btn sf-play-btn" style="background:#a8c7fa; border:none; color:#041e49; width:28px; height:28px; border-radius:50%; display:flex; align-items:center; justify-content:center; cursor:pointer; outline:none; padding:4px;" title="Play / Pause (Space)">
                     <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
                 </button>
-
-                <!-- Rewind -10s -->
                 <button class="sf-hud-btn sf-rewind-btn" style="background:transparent; border:none; color:#e8eaed; width:26px; height:26px; border-radius:50%; display:flex; align-items:center; justify-content:center; cursor:pointer; outline:none; padding:4px;" title="Rewind -10s">
                     <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor"><path d="M12.5 8c-2.65 0-5.05 1-6.9 2.6L2 7v9h9l-3.62-3.62c1.39-1.2 3.16-1.88 5.12-1.88 3.54 0 6.55 2.31 7.6 5.5l2.37-.78C21.08 11.03 17.15 8 12.5 8z"/></svg>
                 </button>
-
-                <!-- Fast Forward +10s -->
                 <button class="sf-hud-btn sf-fwd-btn" style="background:transparent; border:none; color:#e8eaed; width:26px; height:26px; border-radius:50%; display:flex; align-items:center; justify-content:center; cursor:pointer; outline:none; padding:4px;" title="Fast Forward +10s">
                     <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor"><path d="M11.5 8c2.65 0 5.05 1 6.9 2.6L22 7v9h-9l3.62-3.62c-1.39-1.2-3.16-1.88-5.12-1.88-3.54 0-6.55 2.31-7.6 5.5l-2.37-.78C2.92 11.03 6.85 8 11.5 8z"/></svg>
                 </button>
-
-                <!-- Speed Selector Pill -->
                 <button class="sf-hud-btn sf-speed-btn" style="background:rgba(0,242,254,0.14); color:#00f2fe; border:1px solid rgba(0,242,254,0.4); padding:2px 8px; border-radius:14px; font-size:11px; font-weight:800; cursor:pointer; outline:none;" title="Click to Cycle Speed">${persistentSpeed}x</button>
-
-                <!-- PiP -->
                 <button class="sf-hud-btn sf-pip-btn" style="background:transparent; border:none; color:#e8eaed; width:26px; height:26px; border-radius:50%; display:flex; align-items:center; justify-content:center; cursor:pointer; outline:none; padding:4px;" title="Picture-in-Picture">
                     <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor"><path d="M19 11h-8v6h8v-6zm4 8V5c0-1.1-.9-2-2-2H3c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2zm-2 0H3V5h18v14z"/></svg>
                 </button>
-                
-                <!-- Screenshot Snap -->
                 <button class="sf-hud-btn sf-shot-btn" style="background:transparent; border:none; color:#e8eaed; width:26px; height:26px; border-radius:50%; display:flex; align-items:center; justify-content:center; cursor:pointer; outline:none; padding:4px;" title="Take Screenshot (S)">
                     <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor"><path d="M12 15.2a3.2 3.2 0 1 0 0-6.4 3.2 3.2 0 0 0 0 6.4zm8-9.2h-3.2L15 4H9L7.2 6H4c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm0 12H4V8h3.9l1.8-2h4.6l1.8 2H20v10z"/></svg>
                 </button>
-
-                <!-- A-B Loop -->
-                <button class="sf-hud-btn sf-loop-btn" style="background:transparent; border:none; color:#e8eaed; width:26px; height:26px; border-radius:50%; display:flex; align-items:center; justify-content:center; cursor:pointer; outline:none; padding:4px;" title="A-B Loop (Click: A, Shift+Click: B, Clear)">
+                <button class="sf-hud-btn sf-loop-btn" style="background:transparent; border:none; color:#e8eaed; width:26px; height:26px; border-radius:50%; display:flex; align-items:center; justify-content:center; cursor:pointer; outline:none; padding:4px;" title="A-B Loop">
                     <svg viewBox="0 0 24 24" width="15" height="15" style="fill:#e8eaed;"><path d="M7 7h10v3l4-4-4-4v3H5v6h2V7zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2v4z"/></svg>
                 </button>
             `;
 
-            // Hover on HUD keeps it visible
-            hud.addEventListener('mouseenter', () => showCenterHud(false));
-            hud.addEventListener('mouseleave', () => showCenterHud(true));
+            hud.addEventListener('mouseenter', () => showUpperCenterHud(false));
+            hud.addEventListener('mouseleave', () => showUpperCenterHud(true));
 
-            // Button actions
             hud.querySelector('.sf-play-btn').addEventListener('click', (e) => {
                 e.stopPropagation();
                 const v = getActiveVideo();
@@ -513,37 +480,33 @@
             document.body.appendChild(hud);
         }
 
-        // Attach mouse hover listener to video container to show HUD on demand
         const container = vid.parentElement;
         if (container && !container.__sfHoverAttached) {
             container.__sfHoverAttached = true;
             container.addEventListener('mousemove', () => {
-                positionHudCenter(vid);
-                showCenterHud(true);
+                positionHudUpperCenter(vid);
+                showUpperCenterHud(true);
             });
             container.addEventListener('mouseenter', () => {
-                positionHudCenter(vid);
-                showCenterHud(true);
+                positionHudUpperCenter(vid);
+                showUpperCenterHud(true);
             });
         }
 
-        positionHudCenter(vid);
+        positionHudUpperCenter(vid);
         updateMiniHudPlayState();
     }
 
-    // Reposition HUD on window resize / scroll
     window.addEventListener('resize', () => {
         const v = getActiveVideo();
-        if (v) positionHudCenter(v);
+        if (v) positionHudUpperCenter(v);
     });
     window.addEventListener('scroll', () => {
         const v = getActiveVideo();
-        if (v) positionHudCenter(v);
+        if (v) positionHudUpperCenter(v);
     }, true);
 
-    // =======================================================
-    // 7. SAFE AD-SKIPPER (500MS)
-    // =======================================================
+    // 7. Ad-Skipper
     setInterval(() => {
         if (!adSkipperEnabled) return;
 
@@ -577,9 +540,7 @@
         });
     }, 500);
 
-    // =======================================================
-    // 8. SAFE AUTO-UNMUTE
-    // =======================================================
+    // 8. Auto-Unmute
     setInterval(() => {
         if (!autoUnmuteEnabled) return;
         const userActive = (navigator.userActivation && navigator.userActivation.hasBeenActive) || hasUserInteracted;
@@ -596,9 +557,7 @@
         });
     }, 1000);
 
-    // =======================================================
-    // 9. CONTINUOUS PIP & AUTO-NEXT
-    // =======================================================
+    // 9. Continuous PiP & Auto-Next
     document.addEventListener('ended', async (e) => {
         if (!autoNextEnabled) return;
         if (e.target && e.target.tagName === 'VIDEO' && !isAdVideo(e.target)) {
@@ -622,15 +581,12 @@
         }
     }, true);
 
-    // =======================================================
-    // 10. KEYBOARD SHORTCUTS
-    // =======================================================
+    // 10. Hotkeys
     window.addEventListener('keydown', (e) => {
         if (['INPUT', 'TEXTAREA'].includes(document.activeElement.tagName) || document.activeElement.isContentEditable) return;
         const v = getActiveVideo();
         if (!v) return;
 
-        // Reset Speed: Key 'R'
         if ((e.key === 'r' || e.key === 'R') && !e.ctrlKey && !e.metaKey) {
             e.preventDefault();
             persistentSpeed = 1.0;
@@ -638,15 +594,11 @@
             enforcePersistentMedia();
             updateMiniHudPlayState();
             showToast('⚡ Speed Reset: 1.0x (Normal)', '#00f2fe');
-        }
-        // Mute / Unmute: Key 'M'
-        else if ((e.key === 'm' || e.key === 'M') && !e.ctrlKey && !e.metaKey) {
+        } else if ((e.key === 'm' || e.key === 'M') && !e.ctrlKey && !e.metaKey) {
             e.preventDefault();
             v.muted = !v.muted;
             showToast(v.muted ? '🔇 Muted' : `🔊 Unmuted (${Math.round(v.volume * 100)}%)`);
-        }
-        // Shift + / - : Speed
-        else if (e.shiftKey && (e.key === '+' || e.key === '=' || e.code === 'NumpadAdd')) {
+        } else if (e.shiftKey && (e.key === '+' || e.key === '=' || e.code === 'NumpadAdd')) {
             e.preventDefault(); 
             persistentSpeed = Math.min(3.5, +(persistentSpeed + 0.25).toFixed(2));
             saveSetting('cs_playback_speed', persistentSpeed);
@@ -660,9 +612,7 @@
             enforcePersistentMedia();
             updateMiniHudPlayState();
             showToast(`⚡ Speed: ${persistentSpeed}x`);
-        } 
-        // Volume + / -
-        else if (!e.shiftKey && (e.key === '+' || e.key === '=' || e.code === 'NumpadAdd')) {
+        } else if (!e.shiftKey && (e.key === '+' || e.key === '=' || e.code === 'NumpadAdd')) {
             e.preventDefault(); 
             globalVolume = Math.min(1.0, +(v.volume + 0.1).toFixed(2));
             v.volume = globalVolume;
@@ -674,9 +624,7 @@
             v.volume = globalVolume;
             saveSetting('cs_global_volume', globalVolume);
             showToast(`🔉 Global Volume: ${Math.round(globalVolume * 100)}%`);
-        } 
-        // Forward / Rewind 10s
-        else if (e.code === 'ArrowRight') {
+        } else if (e.code === 'ArrowRight') {
             e.preventDefault();
             v.currentTime += 10;
             showToast('⏩ +10s');
@@ -684,49 +632,39 @@
             e.preventDefault();
             v.currentTime -= 10;
             showToast('⏪ -10s');
-        }
-        // Frame Stepper: , / .
-        else if (e.key === ',' || e.code === 'Comma') {
+        } else if (e.key === ',' || e.code === 'Comma') {
             e.preventDefault(); stepFrame(false);
         } else if (e.key === '.' || e.code === 'Period') {
             e.preventDefault(); stepFrame(true);
-        }
-        // A-B Loop: [ / ] / \
-        else if (e.key === '[' || e.code === 'BracketLeft') {
+        } else if (e.key === '[' || e.code === 'BracketLeft') {
             e.preventDefault(); setPointA();
         } else if (e.key === ']' || e.code === 'BracketRight') {
             e.preventDefault(); setPointB();
         } else if (e.key === '\\' || e.code === 'Backslash') {
             e.preventDefault(); toggleClearLoop();
-        }
-        // Screenshot Capture: S
-        else if ((e.key === 's' || e.key === 'S') && !e.ctrlKey && !e.metaKey) {
+        } else if ((e.key === 's' || e.key === 'S') && !e.ctrlKey && !e.metaKey) {
             e.preventDefault(); captureScreenshot();
-        }
-        // Space & Fullscreen
-        else if (e.code === 'Space') { 
+        } else if (e.code === 'Space') { 
             e.preventDefault(); 
             v.paused ? v.play() : v.pause(); 
             updateMiniHudPlayState();
-        }
-        else if (e.code === 'KeyF') { e.preventDefault(); (v.parentElement || v).requestFullscreen(); }
+        } else if (e.code === 'KeyF') { e.preventDefault(); (v.parentElement || v).requestFullscreen(); }
     });
 
-    // =======================================================
-    // 11. MESSAGE BRIDGE (FOR POPUP)
-    // =======================================================
+    // 11. Cross-Origin Safe Message Bridge
     chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         const v = getActiveVideo();
 
         if (msg.action === 'GET_MEDIA_STATUS') {
-            if (!v && window.self !== window.top) return;
-
+            let u = window.location.href;
+            try { if (window.top && window.top.location) u = window.top.location.href; } catch(e) {}
+            
             let title = document.title || 'Video Player';
             const yt = document.querySelector('h1.ytd-watch-metadata, #title h1');
             if (yt && yt.innerText) title = yt.innerText.trim();
 
             sendResponse({
-                url: window.top.location.href,
+                url: u,
                 hostname: location.hostname.replace('www.', ''),
                 title: title,
                 paused: v ? v.paused : true,
@@ -737,6 +675,24 @@
                 speed: persistentSpeed,
                 hasVideo: !!v
             });
+        } else if (msg.action === 'GET_METADATA') {
+            let u = window.location.href;
+            try { if (window.top && window.top.location) u = window.top.location.href; } catch(e) {}
+
+            let title = document.title || 'Saved Video';
+            let site = location.hostname.replace('www.', '').split('.')[0];
+
+            if (location.hostname.includes('youtube.com')) {
+                site = 'YouTube';
+                const yt = document.querySelector('h1.ytd-watch-metadata, #title h1');
+                if (yt && yt.innerText) title = yt.innerText.trim();
+            } else if (location.hostname.includes('facebook.com')) {
+                site = 'Facebook';
+            } else if (location.hostname.includes('hentaihaven')) {
+                site = 'HentaiHaven';
+            }
+
+            sendResponse({ url: u, title: title, site: site });
         } else if (msg.action === 'TOGGLE_PLAY') {
             if (v) {
                 v.paused ? v.play() : v.pause();
@@ -762,7 +718,7 @@
             saveSetting('cs_force_high_res', forceHighResEnabled);
 
             applyAmbientGlow();
-            if (v) renderCenterHudOnVideo(v);
+            if (v) renderUpperCenterHudOnVideo(v);
 
             if (msg.settings.persistentSpeed) {
                 persistentSpeed = msg.settings.persistentSpeed;

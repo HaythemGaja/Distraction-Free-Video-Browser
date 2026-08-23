@@ -7,7 +7,7 @@
         :root {
             --gmc-bg: #1e2024;
             --gmc-card: #292a2d;
-            --gmc-card-hover: #32353a;
+            --gmc-card-hover: #33363b;
             --gmc-blue: #8ab4f8;
             --gmc-blue-btn: #a8c7fa;
             --gmc-blue-dark: #041e49;
@@ -21,121 +21,128 @@
 
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body {
-            width: 360px; background-color: var(--gmc-bg); color: var(--text-primary);
+            width: 420px; background-color: var(--gmc-bg); color: var(--text-primary);
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-            padding: 12px; display: flex; flex-direction: column; gap: 10px; user-select: none;
+            padding: 14px; display: flex; flex-direction: column; gap: 12px; user-select: none;
         }
 
-        /* ================= 1. NATIVE CHROME GMC MEDIA CARD ================= */
+        /* ================= 1. CHROME GMC MEDIA CARD ================= */
         .gmc-card {
-            background-color: var(--gmc-card); border-radius: 12px; padding: 14px;
-            display: flex; flex-direction: column; gap: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+            background-color: var(--gmc-card); border-radius: 14px; padding: 16px;
+            display: flex; flex-direction: column; gap: 14px; box-shadow: 0 4px 18px rgba(0,0,0,0.35);
             border: 1px solid var(--border-color);
         }
 
         .gmc-header { display: flex; justify-content: space-between; align-items: center; }
-        .gmc-domain-box { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--text-secondary); font-weight: 600; }
-        .gmc-domain-icon { font-size: 12px; }
+        .gmc-domain-box { display: flex; align-items: center; gap: 7px; font-size: 12px; color: var(--text-secondary); font-weight: 600; }
+        .gmc-domain-icon { width: 14px; height: 14px; fill: var(--gmc-blue); }
 
-        .gmc-header-actions { display: flex; align-items: center; gap: 6px; }
+        .gmc-header-actions { display: flex; align-items: center; gap: 8px; }
 
         .card-speed-select {
             background-color: #1e2024; color: var(--gmc-blue); border: 1px solid #3c4043;
-            border-radius: 12px; padding: 2px 6px; font-size: 10px; font-weight: bold; cursor: pointer; outline: none;
+            border-radius: 12px; padding: 3px 8px; font-size: 11px; font-weight: bold; cursor: pointer; outline: none;
         }
         .card-speed-select:hover { border-color: var(--gmc-blue); }
 
-        .gmc-pip-btn { background: none; border: none; color: var(--text-secondary); font-size: 14px; cursor: pointer; padding: 2px; }
+        .gmc-pip-btn { background: none; border: none; color: var(--text-secondary); cursor: pointer; padding: 3px; display: flex; align-items: center; }
+        .gmc-pip-btn svg { width: 16px; height: 16px; fill: currentColor; }
         .gmc-pip-btn:hover { color: #fff; }
 
-        .gmc-content-row { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
-        .gmc-info { flex: 1; overflow: hidden; display: flex; flex-direction: column; gap: 3px; }
-        .gmc-title { font-size: 13px; font-weight: 700; color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-        .gmc-sub { font-size: 10px; color: var(--text-secondary); }
+        .gmc-content-row { display: flex; justify-content: space-between; align-items: center; gap: 14px; }
+        .gmc-info { flex: 1; overflow: hidden; display: flex; flex-direction: column; gap: 4px; }
+        .gmc-title { font-size: 14px; font-weight: 700; color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .gmc-sub { font-size: 11px; color: var(--text-secondary); }
 
         .gmc-play-circle {
-            width: 44px; height: 44px; border-radius: 50%; background-color: var(--gmc-blue-btn);
+            width: 46px; height: 46px; border-radius: 50%; background-color: var(--gmc-blue-btn);
             color: var(--gmc-blue-dark); border: none; display: flex; align-items: center; justify-content: center;
-            font-size: 18px; cursor: pointer; flex-shrink: 0; transition: transform 0.15s;
+            cursor: pointer; flex-shrink: 0; transition: transform 0.15s;
         }
+        .gmc-play-circle svg { width: 18px; height: 18px; fill: var(--gmc-blue-dark); }
         .gmc-play-circle:hover { transform: scale(1.06); }
 
-        .gmc-timeline-container { display: flex; align-items: center; gap: 8px; width: 100%; }
-        
+        /* Scrubber Bar */
+        .gmc-timeline-container { display: flex; align-items: center; gap: 10px; width: 100%; }
         .gmc-scrub-slider {
-            flex: 1; height: 3px; accent-color: var(--gmc-blue); cursor: pointer;
+            flex: 1; height: 4px; accent-color: var(--gmc-blue); cursor: pointer;
             background: #3c4043; border-radius: 2px; -webkit-appearance: none;
         }
-        .gmc-scrub-slider::-webkit-slider-thumb { -webkit-appearance: none; width: 10px; height: 10px; border-radius: 50%; background: var(--gmc-blue); }
+        .gmc-scrub-slider::-webkit-slider-thumb { -webkit-appearance: none; width: 12px; height: 12px; border-radius: 50%; background: var(--gmc-blue); }
 
-        .gmc-controls-bar { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
+        /* Controls Bar: |<< (10) [Scrubber] (10) >>| */
+        .gmc-controls-bar { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
         
         .gmc-transport-btn {
-            background: none; border: none; color: var(--text-secondary); font-size: 13px; font-weight: bold;
-            cursor: pointer; padding: 4px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center;
+            background: none; border: none; color: var(--text-secondary);
+            cursor: pointer; padding: 5px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center;
             transition: 0.15s;
         }
-        .gmc-transport-btn:hover { color: var(--text-primary); background: rgba(255,255,255,0.06); }
-        .gmc-seek-btn { font-size: 11px; padding: 2px 6px; border-radius: 12px; }
+        .gmc-transport-btn svg { width: 16px; height: 16px; fill: currentColor; }
+        .gmc-transport-btn:hover { color: var(--text-primary); background: rgba(255,255,255,0.08); }
 
-        .time-badge { font-size: 9px; color: var(--text-secondary); min-width: 28px; text-align: center; }
+        .time-badge { font-size: 10px; color: var(--text-secondary); min-width: 32px; text-align: center; font-weight: 500; }
 
-        /* ================= 2. SETTINGS LIST ================= */
-        .gmc-list { display: flex; flex-direction: column; }
+        /* ================= 2. CLEAN SVG SETTINGS ROWS ================= */
+        .gmc-list { display: flex; flex-direction: column; gap: 1px; }
         
         .gmc-list-row {
-            display: flex; justify-content: space-between; align-items: center; padding: 9px 4px;
+            display: flex; justify-content: space-between; align-items: center; padding: 11px 6px;
             border-top: 1px solid var(--border-color); font-size: 12px; color: var(--text-primary);
         }
         .gmc-list-row:first-child { border-top: none; }
 
-        .gmc-row-label { display: flex; align-items: center; gap: 8px; font-weight: 500; font-size: 11px; }
+        .gmc-row-label { display: flex; align-items: center; gap: 10px; font-weight: 500; font-size: 12px; }
+        .gmc-row-icon { width: 16px; height: 16px; fill: var(--gmc-blue); flex-shrink: 0; display: flex; align-items: center; }
+        .gmc-row-icon svg { width: 100%; height: 100%; fill: currentColor; }
 
+        /* Modern GMC Switch Toggle */
         .gmc-switch {
-            width: 32px; height: 18px; background: #3c4043; border-radius: 10px; position: relative;
+            width: 34px; height: 19px; background: #3c4043; border-radius: 10px; position: relative;
             cursor: pointer; transition: background 0.2s;
         }
         .gmc-switch::after {
-            content: ''; position: absolute; top: 2px; left: 2px; width: 14px; height: 14px;
+            content: ''; position: absolute; top: 2px; left: 2px; width: 15px; height: 15px;
             background: #fff; border-radius: 50%; transition: transform 0.2s;
         }
         .gmc-switch.active { background: var(--gmc-blue); }
-        .gmc-switch.active::after { transform: translateX(14px); background: #041e49; }
+        .gmc-switch.active::after { transform: translateX(15px); background: #041e49; }
 
         select, input[type="range"] {
-            outline: none; font-size: 10px; font-weight: bold; border-radius: 6px; border: 1px solid #3c4043;
-            background-color: var(--gmc-card); color: var(--text-primary); padding: 3px 6px;
+            outline: none; font-size: 11px; font-weight: bold; border-radius: 6px; border: 1px solid #3c4043;
+            background-color: var(--gmc-card); color: var(--text-primary); padding: 4px 8px;
         }
 
         .btn-action-small {
-            padding: 3px 8px; border-radius: 6px; border: 1px solid #3c4043; background: var(--gmc-card);
-            color: var(--text-primary); font-size: 10px; font-weight: bold; cursor: pointer;
+            padding: 4px 10px; border-radius: 6px; border: 1px solid #3c4043; background: var(--gmc-card);
+            color: var(--text-primary); font-size: 11px; font-weight: bold; cursor: pointer; display: inline-flex; align-items: center; gap: 4px;
         }
         .btn-action-small:hover { border-color: var(--gmc-blue); color: var(--gmc-blue); }
 
         /* Watch Later Drawer */
-        #wl-container { display: none; flex-direction: column; gap: 6px; padding: 8px 0; border-top: 1px solid var(--border-color); }
+        #wl-container { display: none; flex-direction: column; gap: 8px; padding: 10px 0 4px 0; border-top: 1px solid var(--border-color); }
         #wl-container.open { display: flex; }
-        #wl-list { max-height: 140px; overflow-y: auto; display: flex; flex-direction: column; gap: 5px; }
-        .wl-item { background: var(--gmc-card); border: 1px solid var(--border-color); border-radius: 6px; padding: 6px 8px; display: flex; flex-direction: column; gap: 2px; font-size: 10px; }
-        .wl-title { font-weight: bold; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #fff; }
+        #wl-list { max-height: 170px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; }
+        .wl-item { background: var(--gmc-card); border: 1px solid var(--border-color); border-radius: 8px; padding: 8px 10px; display: flex; flex-direction: column; gap: 4px; font-size: 11px; }
+        .wl-title { font-weight: bold; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #fff; font-size: 12px; }
         .wl-actions { display: flex; justify-content: space-between; align-items: center; margin-top: 2px; }
-        .wl-btn-play { background: var(--gmc-blue); color: #000; border: none; padding: 2px 6px; border-radius: 4px; font-weight: bold; cursor: pointer; }
-        .wl-btn-del { color: #ff5f56; background: none; border: none; cursor: pointer; }
+        .wl-btn-play { background: var(--gmc-blue); color: #000; border: none; padding: 3px 8px; border-radius: 4px; font-weight: bold; cursor: pointer; font-size: 10px; }
+        .wl-btn-del { color: #ff5f56; background: none; border: none; cursor: pointer; font-size: 14px; padding: 2px 4px; }
     </style>
 </head>
 <body>
 
-    <!-- 1. Chrome Native Media Control Card -->
+    <!-- 1. Chrome Native Media Control Card (420px Spacious Layout) -->
     <div class="gmc-card">
         <div class="gmc-header">
             <div class="gmc-domain-box">
-                <span class="gmc-domain-icon">⚡</span>
+                <div class="gmc-domain-icon">
+                    <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/></svg>
+                </div>
                 <span id="gmc-domain">Web Video</span>
             </div>
             
             <div class="gmc-header-actions">
-                <!-- Playback Speed on Card -->
                 <select id="card-speed-select" class="card-speed-select" title="Playback Speed">
                     <option value="0.5">0.5x</option>
                     <option value="0.75">0.75x</option>
@@ -148,23 +155,30 @@
                     <option value="3.0">3.0x</option>
                 </select>
 
-                <button id="btn-pip" class="gmc-pip-btn" title="Picture-in-Picture">🗔</button>
+                <button id="btn-pip" class="gmc-pip-btn" title="Picture-in-Picture">
+                    <svg viewBox="0 0 24 24"><path d="M19 11h-8v6h8v-6zm4 8V5c0-1.1-.9-2-2-2H3c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2zm-2 0H3V5h18v14z"/></svg>
+                </button>
             </div>
         </div>
 
-        <!-- Title & Big Circular Play Button -->
         <div class="gmc-content-row">
             <div class="gmc-info">
                 <div id="gmc-title" class="gmc-title">Loading Media...</div>
                 <div class="gmc-sub">StreamFlow Engine Active</div>
             </div>
-            <button id="btn-play-pause" class="gmc-play-circle" title="Play / Pause (Space)">▶</button>
+            <button id="btn-play-pause" class="gmc-play-circle" title="Play / Pause (Space)">
+                <svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+            </button>
         </div>
 
         <!-- Controls Bar (|<< 10 [Timeline] 10 >>|) -->
         <div class="gmc-controls-bar">
-            <button id="btn-prev" class="gmc-transport-btn" title="Previous / Restart">⏮</button>
-            <button id="btn-rewind" class="gmc-transport-btn gmc-seek-btn" title="Rewind -10s">⟲ 10</button>
+            <button id="btn-prev" class="gmc-transport-btn" title="Previous / Restart">
+                <svg viewBox="0 0 24 24"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg>
+            </button>
+            <button id="btn-rewind" class="gmc-transport-btn" title="Rewind -10s">
+                <svg viewBox="0 0 24 24"><path d="M12.5 8c-2.65 0-5.05 1-6.9 2.6L2 7v9h9l-3.62-3.62c1.39-1.2 3.16-1.88 5.12-1.88 3.54 0 6.55 2.31 7.6 5.5l2.37-.78C21.08 11.03 17.15 8 12.5 8z"/></svg>
+            </button>
             
             <div class="gmc-timeline-container">
                 <span id="time-current" class="time-badge">0:00</span>
@@ -172,17 +186,23 @@
                 <span id="time-duration" class="time-badge">0:00</span>
             </div>
 
-            <button id="btn-forward" class="gmc-transport-btn gmc-seek-btn" title="Forward +10s">10 ⟳</button>
-            <button id="btn-next" class="gmc-transport-btn" title="Next Video">⏭</button>
+            <button id="btn-forward" class="gmc-transport-btn" title="Forward +10s">
+                <svg viewBox="0 0 24 24"><path d="M11.5 8c2.65 0 5.05 1 6.9 2.6L22 7v9h-9l3.62-3.62c-1.39-1.2-3.16-1.88-5.12-1.88-3.54 0-6.55 2.31-7.6 5.5l-2.37-.78C2.92 11.03 6.85 8 11.5 8z"/></svg>
+            </button>
+            <button id="btn-next" class="gmc-transport-btn" title="Next Video">
+                <svg viewBox="0 0 24 24"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg>
+            </button>
         </div>
     </div>
 
-    <!-- 2. Settings Rows Underneath -->
+    <!-- 2. Pure Vector SVG Settings List -->
     <div class="gmc-list">
-        <!-- Turbo Ad-Skipper Toggle -->
+        <!-- Turbo Ad-Skipper Row -->
         <div class="gmc-list-row">
             <div class="gmc-row-label">
-                <span>⚡</span>
+                <div class="gmc-row-icon" style="color:var(--accent-cyan);">
+                    <svg viewBox="0 0 24 24"><path d="M7 2v11h3v9l7-12h-4l4-8z"/></svg>
+                </div>
                 <span>Turbo Ad-Skipper (16x + Mute)</span>
             </div>
             <div id="toggle-adskipper" class="gmc-switch active"></div>
@@ -191,16 +211,20 @@
         <!-- Global Volume Row -->
         <div class="gmc-list-row">
             <div class="gmc-row-label">
-                <span>🔊</span>
-                <span>Global Volume (<span id="volume-val">100%</span>)</span>
+                <div class="gmc-row-icon" style="color:var(--gmc-blue);">
+                    <svg viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg>
+                </div>
+                <span>Global Volume (<span id="volume-val" style="color:var(--gmc-blue);">100%</span>)</span>
             </div>
-            <input type="range" id="volume-slider" min="0" max="100" step="5" value="100" style="width:110px; accent-color:var(--gmc-blue);">
+            <input type="range" id="volume-slider" min="0" max="100" step="5" value="100" style="width:125px; accent-color:var(--gmc-blue);">
         </div>
 
         <!-- Audio EQ Preset Row -->
         <div class="gmc-list-row">
             <div class="gmc-row-label">
-                <span>🎚️</span>
+                <div class="gmc-row-icon" style="color:var(--accent-gold);">
+                    <svg viewBox="0 0 24 24"><path d="M10 20h4V4h-4v16zm-6 0h4v-8H4v8zM16 9v11h4V9h-4z"/></svg>
+                </div>
                 <span>Audio Equalizer</span>
             </div>
             <select id="eq-select" style="color:var(--accent-gold);">
@@ -214,66 +238,67 @@
         <!-- A-B Repeat Loop Row -->
         <div class="gmc-list-row">
             <div class="gmc-row-label">
-                <span>🔁</span>
+                <div class="gmc-row-icon" style="color:var(--accent-green);">
+                    <svg viewBox="0 0 24 24"><path d="M7 7h10v3l4-4-4-4v3H5v6h2V7zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2v4z"/></svg>
+                </div>
                 <span>A-B Repeat Loop</span>
             </div>
-            <div style="display:flex; gap:4px;">
+            <div style="display:flex; gap:5px;">
                 <button id="btn-ab-a" class="btn-action-small">Set A ([)</button>
                 <button id="btn-ab-b" class="btn-action-small">Set B (])</button>
                 <button id="btn-ab-clear" class="btn-action-small" style="color:#ff5f56;">✕ (\)</button>
             </div>
         </div>
 
-        <!-- Quick Capture & Stepper Row -->
+        <!-- Frame Step & Snap Row -->
         <div class="gmc-list-row">
             <div class="gmc-row-label">
-                <span>🎞️</span>
+                <div class="gmc-row-icon" style="color:var(--accent-cyan);">
+                    <svg viewBox="0 0 24 24"><path d="M12 15.2a3.2 3.2 0 1 0 0-6.4 3.2 3.2 0 0 0 0 6.4zm8-9.2h-3.2L15 4H9L7.2 6H4c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm0 12H4V8h3.9l1.8-2h4.6l1.8 2H20v10z"/></svg>
+                </div>
                 <span>Frame Step & Snap</span>
             </div>
-            <div style="display:flex; gap:4px;">
+            <div style="display:flex; gap:5px;">
                 <button id="btn-frame-back" class="btn-action-small">⏪ (,)</button>
                 <button id="btn-frame-fwd" class="btn-action-small">⏩ (.)</button>
                 <button id="btn-shot" class="btn-action-small" style="color:var(--accent-cyan);">📸 (S)</button>
             </div>
         </div>
 
-        <!-- Floating HUD Position Reset -->
+        <!-- Auto-Play Next Video Row -->
         <div class="gmc-list-row">
             <div class="gmc-row-label">
-                <span>🧭</span>
-                <span>On-Video Mini-HUD</span>
-            </div>
-            <button id="btn-reset-hud" class="btn-action-small">↺ Reset Position</button>
-        </div>
-
-        <!-- Auto-Play Next Toggle Row -->
-        <div class="gmc-list-row">
-            <div class="gmc-row-label">
-                <span>⏩</span>
+                <div class="gmc-row-icon" style="color:var(--gmc-blue);">
+                    <svg viewBox="0 0 24 24"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg>
+                </div>
                 <span>Auto-Play Next Video</span>
             </div>
             <div id="toggle-autonext" class="gmc-switch active"></div>
         </div>
 
-        <!-- Ambient Glow Toggle Row -->
+        <!-- Ambient Video Glow Row -->
         <div class="gmc-list-row">
             <div class="gmc-row-label">
-                <span>🌈</span>
+                <div class="gmc-row-icon" style="color:var(--accent-cyan);">
+                    <svg viewBox="0 0 24 24"><path d="M12 7c-2.76 0-5 2.24-5 5s2.24 5 5 5 5-2.24 5-5-2.24-5-5-5zm0-5C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8z"/></svg>
+                </div>
                 <span>Ambient Video Glow</span>
             </div>
             <div id="toggle-ambient" class="gmc-switch"></div>
         </div>
 
-        <!-- Watch Later Row -->
+        <!-- Watch Later Queue Row -->
         <div class="gmc-list-row" id="row-wl-toggle" style="cursor:pointer;">
             <div class="gmc-row-label">
-                <span>⭐</span>
+                <div class="gmc-row-icon" style="color:var(--accent-gold);">
+                    <svg viewBox="0 0 24 24"><path d="M17 3H7c-1.1 0-1.99.9-1.99 2L5 21l7-3 7 3V5c0-1.1-.9-2-2-2z"/></svg>
+                </div>
                 <span>Watch Later Queue (<span id="wl-count">0</span>)</span>
             </div>
-            <button id="btn-save-wl" class="btn-action-small" style="color:var(--accent-gold);">+ Save Video</button>
+            <button id="btn-save-wl" class="btn-action-small" style="color:var(--accent-gold); border-color:var(--accent-gold);">+ Save Video</button>
         </div>
 
-        <!-- Watch Later List Container -->
+        <!-- Watch Later Drawer List -->
         <div id="wl-container">
             <div id="wl-list"></div>
         </div>
