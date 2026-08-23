@@ -1,5 +1,4 @@
 (function() {
-    // Default Settings
     let adSkipperEnabled = true;
     let autoNextEnabled = true;
     let autoUnmuteEnabled = true;
@@ -11,22 +10,17 @@
     let forceHighResEnabled = true;
     let hasUserInteracted = false;
 
-    // A-B Repeat Loop State
     let abLoop = { a: null, b: null, active: false };
-
-    // Audio Equalizer State
     let audioCtx = null;
     let gainNode = null;
     let bassFilter = null;
     let vocalFilter = null;
     let hudFadeTimer = null;
 
-    // Track User Interaction
     ['click', 'keydown', 'pointerdown', 'touchstart'].forEach(evt => {
         window.addEventListener(evt, () => { hasUserInteracted = true; }, { once: true, capture: true });
     });
 
-    // Multi-Storage Loader
     function loadAllSettings(callback) {
         const keys = [
             'cs_ad_skipper_enabled', 'cs_auto_next', 'cs_auto_unmute', 'cs_playback_speed',
@@ -94,9 +88,7 @@
         return src.includes('/ad/') || src.includes('doubleclick') || src.includes('googleads') || src.includes('vast');
     }
 
-    // =======================================================
-    // 1. SPEED & VOLUME PERSISTENCE ENGINE
-    // =======================================================
+    // 1. Playback Persistence
     function enforcePersistentMedia() {
         const vids = getAllVideos();
         vids.forEach(v => {
@@ -132,9 +124,7 @@
         }
     }, true);
 
-    // =======================================================
-    // 2. A-B REPEAT LOOP ENGINE
-    // =======================================================
+    // 2. A-B Repeat Loop
     function setPointA() {
         const v = getActiveVideo();
         if (!v) return;
@@ -180,9 +170,7 @@
         }
     }, true);
 
-    // =======================================================
-    // 3. FRAME STEPPER & HD SCREENSHOT
-    // =======================================================
+    // 3. Frame Stepper & Screenshot
     function stepFrame(forward = true) {
         const v = getActiveVideo();
         if (!v) return;
@@ -217,9 +205,7 @@
         }
     }
 
-    // =======================================================
-    // 4. AUDIO EQUALIZER
-    // =======================================================
+    // 4. Equalizer
     function initAudioEqualizer(video) {
         if (!hasUserInteracted || !video || video.__sfAudioConnected) return;
 
@@ -282,9 +268,7 @@
         }
     }
 
-    // =======================================================
-    // 5. AMBIENT GLOW & RESOLUTION LOCK
-    // =======================================================
+    // 5. Ambient Glow & Resolution Lock
     function applyAmbientGlow() {
         let styleEl = document.getElementById('streamflow-glow-style');
         if (!ambientGlowEnabled) {
@@ -318,9 +302,7 @@
         } catch (e) {}
     }
 
-    // =======================================================
-    // 6. UPPER-CENTER ON-VIDEO HUD
-    // =======================================================
+    // 6. Upper-Center HUD
     function positionHudUpperCenter(vid) {
         const hud = document.getElementById('streamflow-upper-center-hud');
         if (!hud || !vid) return;
@@ -423,7 +405,7 @@
                 <button class="sf-hud-btn sf-fwd-btn" style="background:transparent; border:none; color:#e8eaed; width:26px; height:26px; border-radius:50%; display:flex; align-items:center; justify-content:center; cursor:pointer; outline:none; padding:4px;" title="Fast Forward +10s">
                     <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor"><path d="M11.5 8c2.65 0 5.05 1 6.9 2.6L22 7v9h-9l3.62-3.62c-1.39-1.2-3.16-1.88-5.12-1.88-3.54 0-6.55 2.31-7.6 5.5l-2.37-.78C2.92 11.03 6.85 8 11.5 8z"/></svg>
                 </button>
-                <button class="sf-hud-btn sf-speed-btn" style="background:rgba(0,242,254,0.14); color:#00f2fe; border:1px solid rgba(0,242,254,0.4); padding:2px 8px; border-radius:14px; font-size:11px; font-weight:800; cursor:pointer; outline:none;" title="Click to Cycle Speed (Keys: 4=+0.25x, 6=-0.25x, 0=1.0x)">${persistentSpeed}x</button>
+                <button class="sf-hud-btn sf-speed-btn" style="background:rgba(0,242,254,0.14); color:#00f2fe; border:1px solid rgba(0,242,254,0.4); padding:2px 8px; border-radius:14px; font-size:11px; font-weight:800; cursor:pointer; outline:none;" title="Click to Cycle Speed">${persistentSpeed}x</button>
                 <button class="sf-hud-btn sf-pip-btn" style="background:transparent; border:none; color:#e8eaed; width:26px; height:26px; border-radius:50%; display:flex; align-items:center; justify-content:center; cursor:pointer; outline:none; padding:4px;" title="Picture-in-Picture">
                     <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor"><path d="M19 11h-8v6h8v-6zm4 8V5c0-1.1-.9-2-2-2H3c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2zm-2 0H3V5h18v14z"/></svg>
                 </button>
@@ -492,330 +474,284 @@
                 e.stopPropagation();
                 if (e.shiftKey) setPointB();
                 else if (abLoop.active) toggleClearLoop();
-cat << 'EOF' > popup.html
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>StreamFlow Pro</title>
-    <style>
-        :root {
-            --gmc-bg: #1e2024;
-            --gmc-card: #292a2d;
-            --gmc-card-hover: #33363b;
-            --gmc-blue: #8ab4f8;
-            --gmc-blue-btn: #a8c7fa;
-            --gmc-blue-dark: #041e49;
-            --text-primary: #e8eaed;
-            --text-secondary: #9aa0a6;
-            --accent-gold: #f5b041;
-            --accent-green: #2ecc71;
-            --accent-cyan: #00f2fe;
-            --border-color: #383a3e;
+                else setPointA();
+            });
+
+            document.body.appendChild(hud);
         }
 
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        body {
-            width: 420px; background-color: var(--gmc-bg); color: var(--text-primary);
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-            padding: 14px; display: flex; flex-direction: column; gap: 12px; user-select: none;
+        const container = vid.parentElement;
+        if (container && !container.__sfHoverAttached) {
+            container.__sfHoverAttached = true;
+            container.addEventListener('mousemove', () => {
+                positionHudUpperCenter(vid);
+                showUpperCenterHud(true);
+            });
+            container.addEventListener('mouseenter', () => {
+                positionHudUpperCenter(vid);
+                showUpperCenterHud(true);
+            });
         }
 
-        /* ================= 1. CHROME GMC MEDIA CARD ================= */
-        .gmc-card {
-            background-color: var(--gmc-card); border-radius: 14px; padding: 16px;
-            display: flex; flex-direction: column; gap: 14px; box-shadow: 0 4px 18px rgba(0,0,0,0.35);
-            border: 1px solid var(--border-color);
-        }
+        positionHudUpperCenter(vid);
+        updateMiniHudPlayState();
+    }
 
-        .gmc-header { display: flex; justify-content: space-between; align-items: center; }
-        .gmc-domain-box { display: flex; align-items: center; gap: 7px; font-size: 12px; color: var(--text-secondary); font-weight: 600; }
-        .gmc-domain-icon { width: 14px; height: 14px; fill: var(--gmc-blue); }
+    window.addEventListener('resize', () => {
+        const v = getActiveVideo();
+        if (v) positionHudUpperCenter(v);
+    });
+    window.addEventListener('scroll', () => {
+        const v = getActiveVideo();
+        if (v) positionHudUpperCenter(v);
+    }, true);
 
-        .gmc-header-actions { display: flex; align-items: center; gap: 8px; }
+    // 7. Ad-Skipper
+    setInterval(() => {
+        if (!adSkipperEnabled) return;
 
-        .card-speed-select {
-            background-color: #1e2024; color: var(--gmc-blue); border: 1px solid #3c4043;
-            border-radius: 12px; padding: 3px 8px; font-size: 11px; font-weight: bold; cursor: pointer; outline: none;
-        }
-        .card-speed-select:hover { border-color: var(--gmc-blue); }
-
-        .gmc-pip-btn { background: none; border: none; color: var(--text-secondary); cursor: pointer; padding: 3px; display: flex; align-items: center; }
-        .gmc-pip-btn svg { width: 16px; height: 16px; fill: currentColor; }
-        .gmc-pip-btn:hover { color: #fff; }
-
-        .gmc-content-row { display: flex; justify-content: space-between; align-items: center; gap: 14px; }
-        .gmc-info { flex: 1; overflow: hidden; display: flex; flex-direction: column; gap: 4px; }
-        .gmc-title { font-size: 14px; font-weight: 700; color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-        .gmc-sub { font-size: 11px; color: var(--text-secondary); }
-
-        .gmc-play-circle {
-            width: 46px; height: 46px; border-radius: 50%; background-color: var(--gmc-blue-btn);
-            color: var(--gmc-blue-dark); border: none; display: flex; align-items: center; justify-content: center;
-            cursor: pointer; flex-shrink: 0; transition: transform 0.15s;
-        }
-        .gmc-play-circle svg { width: 18px; height: 18px; fill: var(--gmc-blue-dark); }
-        .gmc-play-circle:hover { transform: scale(1.06); }
-
-        /* Scrubber Bar */
-        .gmc-timeline-container { display: flex; align-items: center; gap: 10px; width: 100%; }
-        .gmc-scrub-slider {
-            flex: 1; height: 4px; accent-color: var(--gmc-blue); cursor: pointer;
-            background: #3c4043; border-radius: 2px; -webkit-appearance: none;
-        }
-        .gmc-scrub-slider::-webkit-slider-thumb { -webkit-appearance: none; width: 12px; height: 12px; border-radius: 50%; background: var(--gmc-blue); }
-
-        /* Controls Bar: |<< 10 [Timeline] 10 >>| */
-        .gmc-controls-bar { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+        const skipSelectors = [
+            '.ytp-ad-skip-button', '.ytp-ad-skip-button-modern', '.ytp-skip-ad-button', 
+            'button.ytp-ad-skip-button-modern', '.ytp-ad-skip-button-container button',
+            '[id^="skip-button"] button', '[aria-label*="Skip Ad" i]', '.videoAdUiSkipButton', 
+            '.ytp-ad-overlay-close-button', '.ytp-ad-preview-container', '.jw-skip', '.vast-skip-button'
+        ];
         
-        .gmc-transport-btn {
-            background: none; border: none; color: var(--text-secondary);
-            cursor: pointer; padding: 5px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center;
-            transition: 0.15s;
-        }
-        .gmc-transport-btn svg { width: 16px; height: 16px; fill: currentColor; }
-        .gmc-transport-btn:hover { color: var(--text-primary); background: rgba(255,255,255,0.08); }
-
-        .time-badge { font-size: 10px; color: var(--text-secondary); min-width: 32px; text-align: center; font-weight: 500; }
-
-        /* ================= 2. CLEAN SVG SETTINGS ROWS ================= */
-        .gmc-list { display: flex; flex-direction: column; gap: 1px; }
+        skipSelectors.forEach(s => {
+            document.querySelectorAll(s).forEach(btn => {
+                if (btn && btn.offsetParent !== null) {
+                    try { btn.click(); } catch(e) {}
+                }
+            });
+        });
         
-        .gmc-list-row {
-            display: flex; justify-content: space-between; align-items: center; padding: 11px 6px;
-            border-top: 1px solid var(--border-color); font-size: 12px; color: var(--text-primary);
+        const vids = getAllVideos();
+        vids.forEach(v => {
+            if (isAdVideo(v)) {
+                if (v.playbackRate !== 16.0) v.playbackRate = 16.0;
+                if (!v.muted) v.muted = true;
+                v.dataset.sfIsAd = "true";
+            } else if (v.dataset.sfIsAd === "true") {
+                delete v.dataset.sfIsAd;
+                v.playbackRate = persistentSpeed;
+                v.muted = false;
+                v.volume = globalVolume;
+            }
+        });
+    }, 500);
+
+    // 8. Auto-Unmute
+    setInterval(() => {
+        if (!autoUnmuteEnabled) return;
+        const userActive = (navigator.userActivation && navigator.userActivation.hasBeenActive) || hasUserInteracted;
+        if (!userActive) return;
+
+        const vids = getAllVideos();
+        vids.forEach(v => {
+            if (!isAdVideo(v) && !v.dataset.sfIsAd && v.muted) {
+                try {
+                    v.muted = false;
+                    v.volume = globalVolume;
+                } catch(e) {}
+            }
+        });
+    }, 1000);
+
+    // 9. Continuous PiP & Auto-Next
+    document.addEventListener('ended', async (e) => {
+        if (!autoNextEnabled) return;
+        if (e.target && e.target.tagName === 'VIDEO' && !isAdVideo(e.target)) {
+            const wasInPiP = document.pictureInPictureElement === e.target;
+            const vids = getAllVideos().filter(v => !isAdVideo(v));
+            const currentIdx = vids.indexOf(e.target);
+
+            if (currentIdx !== -1 && currentIdx + 1 < vids.length) {
+                const nextVid = vids[currentIdx + 1];
+                nextVid.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                
+                setTimeout(async () => {
+                    nextVid.playbackRate = persistentSpeed;
+                    nextVid.volume = globalVolume;
+                    try {
+                        await nextVid.play();
+                        if (wasInPiP) await nextVid.requestPictureInPicture();
+                    } catch(playErr) {}
+                }, 700);
+            }
         }
-        .gmc-list-row:first-child { border-top: none; }
+    }, true);
 
-        .gmc-row-label { display: flex; align-items: center; gap: 10px; font-weight: 500; font-size: 12px; }
-        .gmc-row-icon { width: 16px; height: 16px; fill: var(--gmc-blue); flex-shrink: 0; display: flex; align-items: center; }
-        .gmc-row-icon svg { width: 100%; height: 100%; fill: currentColor; }
+    // 10. Hotkeys
+    window.addEventListener('keydown', (e) => {
+        if (['INPUT', 'TEXTAREA'].includes(document.activeElement.tagName) || document.activeElement.isContentEditable) return;
+        const v = getActiveVideo();
+        if (!v) return;
 
-        /* Switch Toggle */
-        .gmc-switch {
-            width: 34px; height: 19px; background: #3c4043; border-radius: 10px; position: relative;
-            cursor: pointer; transition: background 0.2s;
-        }
-        .gmc-switch::after {
-            content: ''; position: absolute; top: 2px; left: 2px; width: 15px; height: 15px;
-            background: #fff; border-radius: 50%; transition: transform 0.2s;
-        }
-        .gmc-switch.active { background: var(--gmc-blue); }
-        .gmc-switch.active::after { transform: translateX(15px); background: #041e49; }
+        if ((e.key === 'r' || e.key === 'R') && !e.ctrlKey && !e.metaKey) {
+            e.preventDefault();
+            persistentSpeed = 1.0;
+            saveSetting('cs_playback_speed', persistentSpeed);
+            enforcePersistentMedia();
+            updateMiniHudPlayState();
+            showToast('⚡ Speed Reset: 1.0x (Normal)', '#00f2fe');
+        } else if ((e.key === 'm' || e.key === 'M') && !e.ctrlKey && !e.metaKey) {
+            e.preventDefault();
+            v.muted = !v.muted;
+            showToast(v.muted ? '🔇 Muted' : `🔊 Unmuted (${Math.round(v.volume * 100)}%)`);
+        } else if (e.shiftKey && (e.key === '+' || e.key === '=' || e.code === 'NumpadAdd')) {
+            e.preventDefault(); 
+            persistentSpeed = Math.min(3.5, +(persistentSpeed + 0.25).toFixed(2));
+            saveSetting('cs_playback_speed', persistentSpeed);
+            enforcePersistentMedia();
+            updateMiniHudPlayState();
+            showToast(`⚡ Speed: ${persistentSpeed}x`);
+        } else if (e.shiftKey && (e.key === '_' || e.key === '-' || e.code === 'NumpadSubtract')) {
+            e.preventDefault(); 
+            persistentSpeed = Math.max(0.25, +(persistentSpeed - 0.25).toFixed(2));
+            saveSetting('cs_playback_speed', persistentSpeed);
+            enforcePersistentMedia();
+            updateMiniHudPlayState();
+            showToast(`⚡ Speed: ${persistentSpeed}x`);
+        } else if (!e.shiftKey && (e.key === '+' || e.key === '=' || e.code === 'NumpadAdd')) {
+            e.preventDefault(); 
+            globalVolume = Math.min(1.0, +(v.volume + 0.1).toFixed(2));
+            v.volume = globalVolume;
+            saveSetting('cs_global_volume', globalVolume);
+            showToast(`🔊 Global Volume: ${Math.round(globalVolume * 100)}%`);
+        } else if (!e.shiftKey && (e.key === '-' || e.code === 'NumpadSubtract')) {
+            e.preventDefault(); 
+            globalVolume = Math.max(0.0, +(v.volume - 0.1).toFixed(2));
+            v.volume = globalVolume;
+            saveSetting('cs_global_volume', globalVolume);
+            showToast(`🔉 Global Volume: ${Math.round(globalVolume * 100)}%`);
+        } else if (e.code === 'ArrowRight') {
+            e.preventDefault();
+            v.currentTime += 10;
+            showToast('⏩ +10s');
+        } else if (e.code === 'ArrowLeft') {
+            e.preventDefault();
+            v.currentTime -= 10;
+            showToast('⏪ -10s');
+        } else if (e.key === ',' || e.code === 'Comma') {
+            e.preventDefault(); stepFrame(false);
+        } else if (e.key === '.' || e.code === 'Period') {
+            e.preventDefault(); stepFrame(true);
+        } else if (e.key === '[' || e.code === 'BracketLeft') {
+            e.preventDefault(); setPointA();
+        } else if (e.key === ']' || e.code === 'BracketRight') {
+            e.preventDefault(); setPointB();
+        } else if (e.key === '\\' || e.code === 'Backslash') {
+            e.preventDefault(); toggleClearLoop();
+        } else if ((e.key === 's' || e.key === 'S') && !e.ctrlKey && !e.metaKey) {
+            e.preventDefault(); captureScreenshot();
+        } else if (e.code === 'Space') { 
+            e.preventDefault(); 
+            v.paused ? v.play() : v.pause(); 
+            updateMiniHudPlayState();
+        } else if (e.code === 'KeyF') { e.preventDefault(); (v.parentElement || v).requestFullscreen(); }
+    });
 
-        select, input[type="range"] {
-            outline: none; font-size: 11px; font-weight: bold; border-radius: 6px; border: 1px solid #3c4043;
-            background-color: var(--gmc-card); color: var(--text-primary); padding: 4px 8px;
-        }
+    // 11. Cross-Origin Safe Message Bridge
+    chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+        const v = getActiveVideo();
 
-        .btn-action-small {
-            padding: 4px 10px; border-radius: 6px; border: 1px solid #3c4043; background: var(--gmc-card);
-            color: var(--text-primary); font-size: 11px; font-weight: bold; cursor: pointer; display: inline-flex; align-items: center; gap: 4px;
-        }
-        .btn-action-small:hover { border-color: var(--gmc-blue); color: var(--gmc-blue); }
-
-        /* Keyboard Shortcuts Box */
-        .shortcuts-box {
-            background: var(--gmc-card); border: 1px solid var(--border-color); border-radius: 10px;
-            padding: 10px 12px; display: flex; flex-direction: column; gap: 4px; font-size: 11px; color: var(--text-secondary);
-        }
-        .shortcuts-box b { color: #fff; }
-
-        /* Watch Later Drawer */
-        #wl-container { display: none; flex-direction: column; gap: 8px; padding: 10px 0 4px 0; border-top: 1px solid var(--border-color); }
-        #wl-container.open { display: flex; }
-        #wl-list { max-height: 170px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; }
-        .wl-item { background: var(--gmc-card); border: 1px solid var(--border-color); border-radius: 8px; padding: 8px 10px; display: flex; flex-direction: column; gap: 4px; font-size: 11px; }
-        .wl-title { font-weight: bold; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #fff; font-size: 12px; }
-        .wl-actions { display: flex; justify-content: space-between; align-items: center; margin-top: 2px; }
-        .wl-btn-play { background: var(--gmc-blue); color: #000; border: none; padding: 3px 8px; border-radius: 4px; font-weight: bold; cursor: pointer; font-size: 10px; }
-        .wl-btn-del { color: #ff5f56; background: none; border: none; cursor: pointer; font-size: 14px; padding: 2px 4px; }
-    </style>
-</head>
-<body>
-
-    <!-- 1. Chrome Native Media Control Card -->
-    <div class="gmc-card">
-        <div class="gmc-header">
-            <div class="gmc-domain-box">
-                <div class="gmc-domain-icon">
-                    <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/></svg>
-                </div>
-                <span id="gmc-domain">Web Video</span>
-            </div>
+        if (msg.action === 'GET_MEDIA_STATUS') {
+            let u = window.location.href;
+            try { if (window.top && window.top.location) u = window.top.location.href; } catch(e) {}
             
-            <div class="gmc-header-actions">
-                <select id="card-speed-select" class="card-speed-select" title="Playback Speed (Keys: 4=+0.25x, 6=-0.25x, 0=1.0x)">
-                    <option value="0.5">0.5x</option>
-                    <option value="0.75">0.75x</option>
-                    <option value="1.0" selected>1.0x</option>
-                    <option value="1.25">1.25x</option>
-                    <option value="1.5">1.5x</option>
-                    <option value="1.75">1.75x</option>
-                    <option value="2.0">2.0x</option>
-                    <option value="2.5">2.5x</option>
-                    <option value="3.0">3.0x</option>
-                </select>
+            let title = document.title || 'Video Player';
+            const yt = document.querySelector('h1.ytd-watch-metadata, #title h1');
+            if (yt && yt.innerText) title = yt.innerText.trim();
 
-                <button id="btn-pip" class="gmc-pip-btn" title="Picture-in-Picture">
-                    <svg viewBox="0 0 24 24"><path d="M19 11h-8v6h8v-6zm4 8V5c0-1.1-.9-2-2-2H3c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2zm-2 0H3V5h18v14z"/></svg>
-                </button>
-            </div>
-        </div>
+            sendResponse({
+                url: u,
+                hostname: location.hostname.replace('www.', ''),
+                title: title,
+                paused: v ? v.paused : true,
+                currentTime: v ? v.currentTime : 0,
+                duration: v ? (v.duration || 0) : 0,
+                volume: globalVolume,
+                muted: v ? v.muted : false,
+                speed: persistentSpeed,
+                hasVideo: !!v
+            });
+        } else if (msg.action === 'GET_METADATA') {
+            let u = window.location.href;
+            try { if (window.top && window.top.location) u = window.top.location.href; } catch(e) {}
 
-        <div class="gmc-content-row">
-            <div class="gmc-info">
-                <div id="gmc-title" class="gmc-title">Loading Media...</div>
-                <div class="gmc-sub">StreamFlow Engine Active</div>
-            </div>
-            <button id="btn-play-pause" class="gmc-play-circle" title="Play / Pause (Space)">
-                <svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
-            </button>
-        </div>
+            let title = document.title || 'Saved Video';
+            let site = location.hostname.replace('www.', '').split('.')[0];
 
-        <!-- Controls Bar (|<< 10 [Timeline] 10 >>|) -->
-        <div class="gmc-controls-bar">
-            <button id="btn-prev" class="gmc-transport-btn" title="Previous / Restart">
-                <svg viewBox="0 0 24 24"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg>
-            </button>
-            <button id="btn-rewind" class="gmc-transport-btn" title="Rewind -10s">
-                <svg viewBox="0 0 24 24"><path d="M12.5 8c-2.65 0-5.05 1-6.9 2.6L2 7v9h9l-3.62-3.62c1.39-1.2 3.16-1.88 5.12-1.88 3.54 0 6.55 2.31 7.6 5.5l2.37-.78C21.08 11.03 17.15 8 12.5 8z"/></svg>
-            </button>
+            if (location.hostname.includes('youtube.com')) {
+                site = 'YouTube';
+                const yt = document.querySelector('h1.ytd-watch-metadata, #title h1');
+                if (yt && yt.innerText) title = yt.innerText.trim();
+            } else if (location.hostname.includes('facebook.com')) {
+                site = 'Facebook';
+            } else if (location.hostname.includes('hentaihaven')) {
+                site = 'HentaiHaven';
+            }
+
+            sendResponse({ url: u, title: title, site: site });
+        } else if (msg.action === 'TOGGLE_PLAY') {
+            if (v) {
+                v.paused ? v.play() : v.pause();
+                updateMiniHudPlayState();
+            }
+        } else if (msg.action === 'SEEK_OFFSET') {
+            if (v) v.currentTime += msg.offset;
+        } else if (msg.action === 'SEEK_EXACT') {
+            if (v) v.currentTime = msg.time;
+        } else if (msg.action === 'UPDATE_SETTINGS') {
+            adSkipperEnabled = msg.settings.adSkipperEnabled;
+            autoNextEnabled = msg.settings.autoNextEnabled;
+            autoUnmuteEnabled = msg.settings.autoUnmuteEnabled;
+            ambientGlowEnabled = msg.settings.ambientGlowEnabled;
+            miniHudEnabled = msg.settings.miniHudEnabled;
+            forceHighResEnabled = msg.settings.forceHighResEnabled;
             
-            <div class="gmc-timeline-container">
-                <span id="time-current" class="time-badge">0:00</span>
-                <input type="range" id="gmc-scrubber" class="gmc-scrub-slider" min="0" max="100" value="0">
-                <span id="time-duration" class="time-badge">0:00</span>
-            </div>
+            saveSetting('cs_ad_skipper_enabled', adSkipperEnabled);
+            saveSetting('cs_auto_next', autoNextEnabled);
+            saveSetting('cs_auto_unmute', autoUnmuteEnabled);
+            saveSetting('cs_ambient_glow', ambientGlowEnabled);
+            saveSetting('cs_mini_hud', miniHudEnabled);
+            saveSetting('cs_force_high_res', forceHighResEnabled);
 
-            <button id="btn-forward" class="gmc-transport-btn" title="Forward +10s">
-                <svg viewBox="0 0 24 24"><path d="M11.5 8c2.65 0 5.05 1 6.9 2.6L22 7v9h-9l3.62-3.62c-1.39-1.2-3.16-1.88-5.12-1.88-3.54 0-6.55 2.31-7.6 5.5l-2.37-.78C2.92 11.03 6.85 8 11.5 8z"/></svg>
-            </button>
-            <button id="btn-next" class="gmc-transport-btn" title="Next Video">
-                <svg viewBox="0 0 24 24"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg>
-            </button>
-        </div>
-    </div>
+            applyAmbientGlow();
+            if (v) renderUpperCenterHudOnVideo(v);
 
-    <!-- 2. Settings Rows -->
-    <div class="gmc-list">
-        <!-- Turbo Ad-Skipper Row -->
-        <div class="gmc-list-row">
-            <div class="gmc-row-label">
-                <div class="gmc-row-icon" style="color:var(--accent-cyan);">
-                    <svg viewBox="0 0 24 24"><path d="M7 2v11h3v9l7-12h-4l4-8z"/></svg>
-                </div>
-                <span>Turbo Ad-Skipper (16x + Mute)</span>
-            </div>
-            <div id="toggle-adskipper" class="gmc-switch active"></div>
-        </div>
-
-        <!-- Global Volume Row -->
-        <div class="gmc-list-row">
-            <div class="gmc-row-label">
-                <div class="gmc-row-icon" style="color:var(--gmc-blue);">
-                    <svg viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg>
-                </div>
-                <span>Global Volume (<span id="volume-val" style="color:var(--gmc-blue);">100%</span>)</span>
-            </div>
-            <input type="range" id="volume-slider" min="0" max="100" step="5" value="100" style="width:125px; accent-color:var(--gmc-blue);">
-        </div>
-
-        <!-- Audio EQ Preset Row -->
-        <div class="gmc-list-row">
-            <div class="gmc-row-label">
-                <div class="gmc-row-icon" style="color:var(--accent-gold);">
-                    <svg viewBox="0 0 24 24"><path d="M10 20h4V4h-4v16zm-6 0h4v-8H4v8zM16 9v11h4V9h-4z"/></svg>
-                </div>
-                <span>Audio Equalizer</span>
-            </div>
-            <select id="eq-select" style="color:var(--accent-gold);">
-                <option value="flat" selected>Flat (Default)</option>
-                <option value="vocal">Vocal Clarity</option>
-                <option value="bass">Bass Boost</option>
-                <option value="night">Night Mode</option>
-            </select>
-        </div>
-
-        <!-- A-B Repeat Loop Row -->
-        <div class="gmc-list-row">
-            <div class="gmc-row-label">
-                <div class="gmc-row-icon" style="color:var(--accent-green);">
-                    <svg viewBox="0 0 24 24"><path d="M7 7h10v3l4-4-4-4v3H5v6h2V7zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2v4z"/></svg>
-                </div>
-                <span>A-B Repeat Loop</span>
-            </div>
-            <div style="display:flex; gap:5px;">
-                <button id="btn-ab-a" class="btn-action-small">Set A ([)</button>
-                <button id="btn-ab-b" class="btn-action-small">Set B (])</button>
-                <button id="btn-ab-clear" class="btn-action-small" style="color:#ff5f56;">✕ (\)</button>
-            </div>
-        </div>
-
-        <!-- Frame Step & Snap Row -->
-        <div class="gmc-list-row">
-            <div class="gmc-row-label">
-                <div class="gmc-row-icon" style="color:var(--accent-cyan);">
-                    <svg viewBox="0 0 24 24"><path d="M12 15.2a3.2 3.2 0 1 0 0-6.4 3.2 3.2 0 0 0 0 6.4zm8-9.2h-3.2L15 4H9L7.2 6H4c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm0 12H4V8h3.9l1.8-2h4.6l1.8 2H20v10z"/></svg>
-                </div>
-                <span>Frame Step & Snap</span>
-            </div>
-            <div style="display:flex; gap:5px;">
-                <button id="btn-frame-back" class="btn-action-small">⏪ (,)</button>
-                <button id="btn-frame-fwd" class="btn-action-small">⏩ (.)</button>
-                <button id="btn-shot" class="btn-action-small" style="color:var(--accent-cyan);">📸 (S)</button>
-            </div>
-        </div>
-
-        <!-- Auto-Play Next Video Row -->
-        <div class="gmc-list-row">
-            <div class="gmc-row-label">
-                <div class="gmc-row-icon" style="color:var(--gmc-blue);">
-                    <svg viewBox="0 0 24 24"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg>
-                </div>
-                <span>Auto-Play Next Video</span>
-            </div>
-            <div id="toggle-autonext" class="gmc-switch active"></div>
-        </div>
-
-        <!-- Ambient Video Glow Row -->
-        <div class="gmc-list-row">
-            <div class="gmc-row-label">
-                <div class="gmc-row-icon" style="color:var(--accent-cyan);">
-                    <svg viewBox="0 0 24 24"><path d="M12 7c-2.76 0-5 2.24-5 5s2.24 5 5 5 5-2.24 5-5-2.24-5-5-5zm0-5C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8z"/></svg>
-                </div>
-                <span>Ambient Video Glow</span>
-            </div>
-            <div id="toggle-ambient" class="gmc-switch"></div>
-        </div>
-
-        <!-- Watch Later Queue Row -->
-        <div class="gmc-list-row" id="row-wl-toggle" style="cursor:pointer;">
-            <div class="gmc-row-label">
-                <div class="gmc-row-icon" style="color:var(--accent-gold);">
-                    <svg viewBox="0 0 24 24"><path d="M17 3H7c-1.1 0-1.99.9-1.99 2L5 21l7-3 7 3V5c0-1.1-.9-2-2-2z"/></svg>
-                </div>
-                <span>Watch Later Queue (<span id="wl-count">0</span>)</span>
-            </div>
-            <button id="btn-save-wl" class="btn-action-small" style="color:var(--accent-gold); border-color:var(--accent-gold);">+ Save Video</button>
-        </div>
-
-        <!-- Watch Later Drawer List -->
-        <div id="wl-container">
-            <div id="wl-list"></div>
-        </div>
-
-        <!-- Keyboard Shortcuts Reference -->
-        <div class="shortcuts-box" style="margin-top:6px;">
-            <div><b>4 / 6</b> : Speed Up (+0.25x) / Slow Down (-0.25x)</div>
-            <div><b>0</b> (or R) : Reset Speed to 1.0x (Normal)</div>
-            <div><b>M</b> : Mute / Unmute | <b>+ / -</b> : Volume Up / Down</div>
-            <div><b>[ / ]</b> : Set Loop Point A / B | <b>\</b> : Clear Loop</div>
-            <div><b>, / .</b> : Frame Step Back / Forward | <b>S</b> : Screenshot</div>
-            <div><b>Space</b> : Play / Pause | <b>F</b> : Fullscreen</div>
-        </div>
-    </div>
-
-    <script src="popup.js"></script>
-</body>
-</html>
+            if (msg.settings.persistentSpeed) {
+                persistentSpeed = msg.settings.persistentSpeed;
+                saveSetting('cs_playback_speed', persistentSpeed);
+                enforcePersistentMedia();
+                updateMiniHudPlayState();
+            }
+            if (msg.settings.globalVolume !== undefined) {
+                globalVolume = msg.settings.globalVolume;
+                saveSetting('cs_global_volume', globalVolume);
+                enforcePersistentMedia();
+            }
+            if (msg.settings.eqPreset) {
+                applyEqPreset(msg.settings.eqPreset);
+            }
+            sendResponse({ status: 'ok' });
+        } else if (msg.action === 'TRIGGER_PIP') {
+            if (v) document.pictureInPictureElement ? document.exitPictureInPicture() : v.requestPictureInPicture();
+        } else if (msg.action === 'TRIGGER_FOCUS') {
+            if (v) document.fullscreenElement ? document.exitFullscreen() : (v.parentElement || v).requestFullscreen();
+        } else if (msg.action === 'TRIGGER_SCREENSHOT') {
+            if (v) captureScreenshot();
+        } else if (msg.action === 'SET_AB_A') {
+            if (v) setPointA();
+        } else if (msg.action === 'SET_AB_B') {
+            if (v) setPointB();
+        } else if (msg.action === 'CLEAR_AB') {
+            if (v) toggleClearLoop();
+        } else if (msg.action === 'STEP_FRAME_FWD') {
+            if (v) stepFrame(true);
+        } else if (msg.action === 'STEP_FRAME_BACK') {
+            if (v) stepFrame(false);
+        }
+        return true;
+    });
+})();
