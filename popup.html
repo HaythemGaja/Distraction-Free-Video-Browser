@@ -43,6 +43,9 @@
         }
         button:hover, select:hover { border-color: var(--accent-cyan); color: var(--accent-cyan); }
 
+        .btn-download { background: linear-gradient(135deg, #00b09b, #96c93d); color: #fff; border: none; font-weight: bold; }
+        .btn-download:hover { box-shadow: 0 0 10px rgba(150, 201, 61, 0.5); color: #fff; }
+
         .btn-gold { background: var(--accent-gold); color: #111; border: none; font-weight: bold; width: 100%; padding: 8px; }
         .btn-gold:hover { background: #f7be65; color: #000; }
 
@@ -83,6 +86,7 @@
     <!-- TAB 1: MEDIA PLAYER -->
     <div id="tab-player" class="tab-content active">
         <div class="btn-row">
+            <button id="btn-download" class="btn-download" style="flex:1;">📥 Download (D)</button>
             <button id="btn-pip" style="flex:1;">🪟 PiP Mode</button>
             <button id="btn-focus" style="flex:1;">🔲 Focus</button>
             <button id="btn-shot" style="flex:1;">📸 Snap (S)</button>
@@ -158,6 +162,7 @@
         <div class="section">
             <div class="section-title">⌨️ Keyboard Shortcuts Guide</div>
             <div class="hotkeys-box">
+                <div><b>D</b> : Download Video Stream</div>
                 <div><b>R</b> : Reset Speed to 1.0x (Normal)</div>
                 <div><b>M</b> : Mute / Unmute Toggle</div>
                 <div><b>+ / -</b> : Volume Up / Down (Saved Globally)</div>

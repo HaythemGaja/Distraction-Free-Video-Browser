@@ -1,12 +1,13 @@
 {
   "manifest_version": 3,
   "name": "StreamFlow Pro - Smart Video & Speed Suite",
-  "version": "2.5.0",
-  "description": "Universal video player suite with persistent speed memory, A-B loop, instant ad-skipping, audio EQ, ambient glow, continuous PiP, and Watch Later.",
+  "version": "2.6.0",
+  "description": "Universal video player suite with persistent speed memory, video downloader, A-B loop, instant ad-skipping, audio EQ, and Watch Later.",
   "permissions": [
     "storage",
     "activeTab",
-    "scripting"
+    "scripting",
+    "downloads"
   ],
   "host_permissions": [
     "<all_urls>"

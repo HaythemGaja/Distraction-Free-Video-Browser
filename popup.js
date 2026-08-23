@@ -139,6 +139,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     };
 
+    document.getElementById('btn-download').addEventListener('click', () => sendTabAction('TRIGGER_DOWNLOAD'));
     document.getElementById('btn-pip').addEventListener('click', () => sendTabAction('TRIGGER_PIP'));
     document.getElementById('btn-focus').addEventListener('click', () => sendTabAction('TRIGGER_FOCUS'));
     document.getElementById('btn-shot').addEventListener('click', () => sendTabAction('TRIGGER_SCREENSHOT'));

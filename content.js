@@ -20,7 +20,7 @@
     let vocalFilter = null;
     let connectedVideo = null;
 
-    // Interaction Listener for Chrome Autoplay Unmute
+    // Track User Interaction for Safe Audio Autoplay per Chrome Policy
     ['click', 'keydown', 'pointerdown', 'touchstart'].forEach(evt => {
         window.addEventListener(evt, () => { hasUserInteracted = true; }, { once: true, capture: true });
     });
@@ -80,7 +80,52 @@
     }
 
     // =======================================================
-    // 1. GLOBAL SPEED & VOLUME ENFORCEMENT
+    // 1. VIDEO DOWNLOAD ENGINE
+    // =======================================================
+    function downloadActiveVideo() {
+        const v = getActiveVideo();
+        if (!v) return showToast('⚠️ No active video detected to download', '#ff5f56');
+
+        // Extract media source URL
+        let mediaUrl = v.currentSrc || v.src;
+        if (!mediaUrl) {
+            const srcEl = v.querySelector('source');
+            if (srcEl) mediaUrl = srcEl.src;
+        }
+
+        // Format clean filename
+        let cleanTitle = (document.title || 'Video').replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 40);
+        let filename = `${cleanTitle}.mp4`;
+
+        if (mediaUrl && (mediaUrl.startsWith('http://') || mediaUrl.startsWith('https://'))) {
+            showToast('📥 Starting Video Download...', '#2ecc71');
+            chrome.runtime.sendMessage({
+                action: 'DOWNLOAD_MEDIA',
+                url: mediaUrl,
+                filename: filename
+            }, (res) => {
+                if (!res || !res.success) {
+                    // Fallback to in-browser anchor trigger
+                    const a = document.createElement('a');
+                    a.href = mediaUrl;
+                    a.download = filename;
+                    a.target = '_blank';
+                    document.body.appendChild(a);
+                    a.click();
+                    a.remove();
+                }
+            });
+        } else if (mediaUrl && mediaUrl.startsWith('blob:')) {
+            // Segmented streaming fallback notification
+            showToast('⚠️ Video uses protected chunk streaming (DASH/HLS)', '#f5b041');
+            window.open(mediaUrl, '_blank');
+        } else {
+            showToast('⚠️ Direct video stream URL not found', '#ff5f56');
+        }
+    }
+
+    // =======================================================
+    // 2. SPEED & VOLUME PERSISTENCE ENGINE
     // =======================================================
     function enforcePersistentMedia() {
         document.querySelectorAll('video').forEach(v => {
@@ -110,7 +155,7 @@
     }, true);
 
     // =======================================================
-    // 2. A-B REPEAT LOOP ENGINE
+    // 3. A-B REPEAT LOOP ENGINE
     // =======================================================
     function setPointA() {
         const v = getActiveVideo();
@@ -155,7 +200,7 @@
     }, true);
 
     // =======================================================
-    // 3. FRAME-BY-FRAME STEPPER
+    // 4. FRAME-BY-FRAME STEPPER
     // =======================================================
     function stepFrame(forward = true) {
         const v = getActiveVideo();
@@ -167,7 +212,7 @@
     }
 
     // =======================================================
-    // 4. TIMESTAMPED HD SCREENSHOT
+    // 5. TIMESTAMPED HD SCREENSHOT
     // =======================================================
     function captureScreenshot() {
         const v = getActiveVideo();
@@ -195,7 +240,7 @@
     }
 
     // =======================================================
-    // 5. AUDIO EQUALIZER
+    // 6. AUDIO EQUALIZER
     // =======================================================
     function initAudioEqualizer(video) {
         if (!hasUserInteracted) return;
@@ -263,7 +308,7 @@
     }
 
     // =======================================================
-    // 6. AMBIENT GLOW BACKLIGHT
+    // 7. AMBIENT GLOW BACKLIGHT
     // =======================================================
     function applyAmbientGlow() {
         let styleEl = document.getElementById('streamflow-glow-style');
@@ -285,7 +330,7 @@
     }
 
     // =======================================================
-    // 7. YOUTUBE RESOLUTION LOCKER
+    // 8. YOUTUBE RESOLUTION LOCKER
     // =======================================================
     function forceYouTubeMaxResolution() {
         try {
@@ -302,7 +347,7 @@
     }
 
     // =======================================================
-    // 8. ON-VIDEO FLOATING MINI-HUD
+    // 9. ON-VIDEO FLOATING MINI-HUD (WITH DOWNLOAD BUTTON)
     // =======================================================
     function injectMiniHud() {
         if (!miniHudEnabled) {
@@ -331,6 +376,7 @@
             hud.innerHTML = `
                 <button class="sf-hud-btn sf-speed-btn" style="background:#222838; color:#00f2fe; border:none; padding:2px 6px; border-radius:12px; font-size:10px; font-weight:bold; cursor:pointer;" title="Click to Cycle Speed">${persistentSpeed}x</button>
                 <button class="sf-hud-btn sf-fwd-btn" style="background:none; border:none; color:#fff; font-size:12px; cursor:pointer;" title="Forward +10s">⏩</button>
+                <button class="sf-hud-btn sf-dl-btn" style="background:none; border:none; color:#2ecc71; font-size:12px; cursor:pointer;" title="Download Video (D)">📥</button>
                 <button class="sf-hud-btn sf-pip-btn" style="background:none; border:none; color:#fff; font-size:12px; cursor:pointer;" title="Picture-in-Picture">🪟</button>
                 <button class="sf-hud-btn sf-shot-btn" style="background:none; border:none; color:#fff; font-size:12px; cursor:pointer;" title="Take Screenshot (S)">📸</button>
                 <button class="sf-hud-btn sf-loop-btn" style="background:none; border:none; color:#fff; font-size:12px; cursor:pointer;" title="A-B Loop (Click: A, Shift+Click: B)">🔁</button>
@@ -357,6 +403,11 @@
                 showToast('⏩ +10s');
             });
 
+            hud.querySelector('.sf-dl-btn').addEventListener('click', (e) => {
+                e.stopPropagation();
+                downloadActiveVideo();
+            });
+
             hud.querySelector('.sf-pip-btn').addEventListener('click', (e) => {
                 e.stopPropagation();
                 document.pictureInPictureElement ? document.exitPictureInPicture() : vid.requestPictureInPicture();
@@ -381,7 +432,7 @@
     setInterval(injectMiniHud, 2000);
 
     // =======================================================
-    // 9. INSTANT AD-SKIPPER (<150ms Action)
+    // 10. INSTANT AD-SKIPPER (<150ms Action)
     // =======================================================
     setInterval(() => {
         const skipSelectors = [
@@ -414,7 +465,7 @@
     }, 150);
 
     // =======================================================
-    // 10. SAFE AUTO-UNMUTE
+    // 11. SAFE AUTO-UNMUTE
     // =======================================================
     setInterval(() => {
         if (!autoUnmuteEnabled) return;
@@ -434,7 +485,7 @@
     }, 800);
 
     // =======================================================
-    // 11. CONTINUOUS PIP & AUTO-NEXT
+    // 12. CONTINUOUS PIP & AUTO-NEXT
     // =======================================================
     document.addEventListener('ended', async (e) => {
         if (!autoNextEnabled) return;
@@ -469,28 +520,33 @@
     }, true);
 
     // =======================================================
-    // 12. KEYBOARD SHORTCUTS (WITH 'R' FOR RESET & 'M' FOR MUTE)
+    // 13. KEYBOARD SHORTCUTS (WITH 'D' FOR DOWNLOAD)
     // =======================================================
     window.addEventListener('keydown', (e) => {
         if (['INPUT', 'TEXTAREA'].includes(document.activeElement.tagName) || document.activeElement.isContentEditable) return;
         const v = getActiveVideo();
         if (!v) return;
 
+        // Download Video: Key 'D'
+        if ((e.key === 'd' || e.key === 'D') && !e.ctrlKey && !e.metaKey && !e.shiftKey) {
+            e.preventDefault();
+            downloadActiveVideo();
+        }
         // Reset Speed to 1.0x: Key 'R'
-        if ((e.key === 'r' || e.key === 'R') && !e.ctrlKey && !e.metaKey) {
+        else if ((e.key === 'r' || e.key === 'R') && !e.ctrlKey && !e.metaKey) {
             e.preventDefault();
             persistentSpeed = 1.0;
             saveSetting('cs_playback_speed', persistentSpeed);
             enforcePersistentMedia();
             showToast('⚡ Speed Reset: 1.0x (Normal)', '#00f2fe');
         }
-        // Mute / Unmute Toggle: Key 'M'
+        // Mute / Unmute: Key 'M'
         else if ((e.key === 'm' || e.key === 'M') && !e.ctrlKey && !e.metaKey) {
             e.preventDefault();
             v.muted = !v.muted;
             showToast(v.muted ? '🔇 Muted' : `🔊 Unmuted (${Math.round(v.volume * 100)}%)`);
         }
-        // Shift + / - : Speed Step Up / Down (Saved Globally)
+        // Shift + / - : Speed
         else if (e.shiftKey && (e.key === '+' || e.key === '=' || e.code === 'NumpadAdd')) {
             e.preventDefault(); 
             persistentSpeed = Math.min(3.5, +(persistentSpeed + 0.25).toFixed(2));
@@ -504,7 +560,7 @@
             enforcePersistentMedia();
             showToast(`⚡ Speed: ${persistentSpeed}x`);
         } 
-        // Volume + / - (Saved Globally Across Websites)
+        // Volume + / -
         else if (!e.shiftKey && (e.key === '+' || e.key === '=' || e.code === 'NumpadAdd')) {
             e.preventDefault(); 
             globalVolume = Math.min(1.0, +(v.volume + 0.1).toFixed(2));
@@ -518,25 +574,23 @@
             saveSetting('cs_global_volume', globalVolume);
             showToast(`🔉 Global Volume: ${Math.round(globalVolume * 100)}%`);
         } 
-        // Forward +10s (Volume Untouched)
+        // Forward / Rewind 10s
         else if (e.code === 'ArrowRight') {
             e.preventDefault();
             v.currentTime += 10;
             showToast('⏩ +10s');
-        }
-        // Rewind -10s (Volume Untouched)
-        else if (e.code === 'ArrowLeft') {
+        } else if (e.code === 'ArrowLeft') {
             e.preventDefault();
             v.currentTime -= 10;
             showToast('⏪ -10s');
         }
-        // Frame Stepper: [ , ] (Back) and [ . ] (Forward)
+        // Frame Stepper: , / .
         else if (e.key === ',' || e.code === 'Comma') {
             e.preventDefault(); stepFrame(false);
         } else if (e.key === '.' || e.code === 'Period') {
             e.preventDefault(); stepFrame(true);
         }
-        // A-B Loop: [ (Set A), ] (Set B), \ (Clear)
+        // A-B Loop: [ / ] / \
         else if (e.key === '[' || e.code === 'BracketLeft') {
             e.preventDefault(); setPointA();
         } else if (e.key === ']' || e.code === 'BracketRight') {
@@ -548,14 +602,13 @@
         else if ((e.key === 's' || e.key === 'S') && !e.ctrlKey && !e.metaKey) {
             e.preventDefault(); captureScreenshot();
         }
-        // Space: Play / Pause
+        // Space & Fullscreen
         else if (e.code === 'Space') { e.preventDefault(); v.paused ? v.play() : v.pause(); }
-        // Fullscreen: F
         else if (e.code === 'KeyF') { e.preventDefault(); (v.parentElement || v).requestFullscreen(); }
     });
 
     // =======================================================
-    // 13. MESSAGE HANDLERS FROM POPUP
+    // 14. MESSAGE HANDLERS FROM POPUP
     // =======================================================
     chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         if (msg.action === 'GET_METADATA') {
@@ -585,6 +638,8 @@
                 }
             }
             sendResponse({ url: u, title: t, site: s });
+        } else if (msg.action === 'TRIGGER_DOWNLOAD') {
+            downloadActiveVideo();
         } else if (msg.action === 'UPDATE_SETTINGS') {
             autoNextEnabled = msg.settings.autoNextEnabled;
             autoUnmuteEnabled = msg.settings.autoUnmuteEnabled;
