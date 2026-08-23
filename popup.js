@@ -1,4 +1,5 @@
 document.addEventListener('DOMContentLoaded', () => {
+    let adSkipperEnabled = true;
     let persistentSpeed = 1.0;
     let globalVolume = 1.0;
     let currentEqPreset = 'flat';
@@ -19,6 +20,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const volumeSlider = document.getElementById('volume-slider');
     const volumeVal = document.getElementById('volume-val');
     const eqSelect = document.getElementById('eq-select');
+    const toggleAdskipper = document.getElementById('toggle-adskipper');
     const toggleAutonext = document.getElementById('toggle-autonext');
     const toggleAmbient = document.getElementById('toggle-ambient');
     const wlCount = document.getElementById('wl-count');
@@ -102,13 +104,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // 3. Storage Sync
     const storageKeys = [
-        'cs_playback_speed', 'cs_global_volume', 'cs_eq_preset', 
-        'cs_auto_next', 'cs_ambient_glow', 'cs_watch_later'
+        'cs_ad_skipper_enabled', 'cs_playback_speed', 'cs_global_volume',
+        'cs_eq_preset', 'cs_auto_next', 'cs_ambient_glow', 'cs_watch_later'
     ];
 
     chrome.storage.local.get(storageKeys, (localData) => {
         chrome.storage.sync.get(storageKeys, (syncData) => {
             const data = Object.assign({}, syncData, localData);
+            if (data.cs_ad_skipper_enabled !== undefined) adSkipperEnabled = data.cs_ad_skipper_enabled;
             if (data.cs_playback_speed) persistentSpeed = parseFloat(data.cs_playback_speed);
             if (data.cs_global_volume !== undefined) globalVolume = parseFloat(data.cs_global_volume);
             if (data.cs_eq_preset) currentEqPreset = data.cs_eq_preset;
@@ -116,11 +119,12 @@ document.addEventListener('DOMContentLoaded', () => {
             if (data.cs_ambient_glow !== undefined) ambientGlowEnabled = data.cs_ambient_glow;
             if (data.cs_watch_later) watchLaterList = data.cs_watch_later;
 
-            // Sync UI elements
+            // Sync UI
             cardSpeedSelect.value = persistentSpeed.toString();
             volumeSlider.value = Math.round(globalVolume * 100);
             volumeVal.innerText = `${Math.round(globalVolume * 100)}%`;
             eqSelect.value = currentEqPreset;
+            toggleAdskipper.classList.toggle('active', adSkipperEnabled);
             toggleAutonext.classList.toggle('active', autoNextEnabled);
             toggleAmbient.classList.toggle('active', ambientGlowEnabled);
             renderWatchLater();
@@ -130,6 +134,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let syncTimer = null;
     function saveSettings() {
         const obj = {
+            cs_ad_skipper_enabled: adSkipperEnabled,
             cs_playback_speed: persistentSpeed,
             cs_global_volume: globalVolume,
             cs_eq_preset: currentEqPreset,
@@ -145,6 +150,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         sendTabAction('UPDATE_SETTINGS', {
             settings: {
+                adSkipperEnabled,
                 persistentSpeed,
                 globalVolume,
                 eqPreset: currentEqPreset,
@@ -157,13 +163,11 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // Playback Speed on Card
     cardSpeedSelect.addEventListener('change', (e) => {
         persistentSpeed = parseFloat(e.target.value);
         saveSettings();
     });
 
-    // Volume Slider
     volumeSlider.addEventListener('input', (e) => {
         const val = parseInt(e.target.value);
         globalVolume = val / 100;
@@ -171,13 +175,17 @@ document.addEventListener('DOMContentLoaded', () => {
         saveSettings();
     });
 
-    // EQ Preset
     eqSelect.addEventListener('change', (e) => {
         currentEqPreset = e.target.value;
         saveSettings();
     });
 
-    // Toggle Switches
+    toggleAdskipper.addEventListener('click', () => {
+        adSkipperEnabled = !adSkipperEnabled;
+        toggleAdskipper.classList.toggle('active', adSkipperEnabled);
+        saveSettings();
+    });
+
     toggleAutonext.addEventListener('click', () => {
         autoNextEnabled = !autoNextEnabled;
         toggleAutonext.classList.toggle('active', autoNextEnabled);
@@ -188,6 +196,10 @@ document.addEventListener('DOMContentLoaded', () => {
         ambientGlowEnabled = !ambientGlowEnabled;
         toggleAmbient.classList.toggle('active', ambientGlowEnabled);
         saveSettings();
+    });
+
+    document.getElementById('btn-reset-hud').addEventListener('click', () => {
+        sendTabAction('RESET_HUD_POS');
     });
 
     // Tool Actions

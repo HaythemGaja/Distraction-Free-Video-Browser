@@ -39,7 +39,6 @@
 
         .gmc-header-actions { display: flex; align-items: center; gap: 6px; }
 
-        /* Speed Badge on the Player Card */
         .card-speed-select {
             background-color: #1e2024; color: var(--gmc-blue); border: 1px solid #3c4043;
             border-radius: 12px; padding: 2px 6px; font-size: 10px; font-weight: bold; cursor: pointer; outline: none;
@@ -49,7 +48,6 @@
         .gmc-pip-btn { background: none; border: none; color: var(--text-secondary); font-size: 14px; cursor: pointer; padding: 2px; }
         .gmc-pip-btn:hover { color: #fff; }
 
-        /* Main Content Row: Title on Left, Big Circular Play/Pause on Right */
         .gmc-content-row { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
         .gmc-info { flex: 1; overflow: hidden; display: flex; flex-direction: column; gap: 3px; }
         .gmc-title { font-size: 13px; font-weight: 700; color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -62,7 +60,6 @@
         }
         .gmc-play-circle:hover { transform: scale(1.06); }
 
-        /* Timeline Scrubber matching screenshot */
         .gmc-timeline-container { display: flex; align-items: center; gap: 8px; width: 100%; }
         
         .gmc-scrub-slider {
@@ -71,7 +68,6 @@
         }
         .gmc-scrub-slider::-webkit-slider-thumb { -webkit-appearance: none; width: 10px; height: 10px; border-radius: 50%; background: var(--gmc-blue); }
 
-        /* Transport Row matching screenshot: |<< (10) [Scrubber] (10) >>| */
         .gmc-controls-bar { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
         
         .gmc-transport-btn {
@@ -84,7 +80,7 @@
 
         .time-badge { font-size: 9px; color: var(--text-secondary); min-width: 28px; text-align: center; }
 
-        /* ================= 2. ROWS UNDERNEATH (MATCHING SCREENSHOT LIST STYLE) ================= */
+        /* ================= 2. SETTINGS LIST ================= */
         .gmc-list { display: flex; flex-direction: column; }
         
         .gmc-list-row {
@@ -95,7 +91,6 @@
 
         .gmc-row-label { display: flex; align-items: center; gap: 8px; font-weight: 500; font-size: 11px; }
 
-        /* Switch Toggles */
         .gmc-switch {
             width: 32px; height: 18px; background: #3c4043; border-radius: 10px; position: relative;
             cursor: pointer; transition: background 0.2s;
@@ -107,7 +102,6 @@
         .gmc-switch.active { background: var(--gmc-blue); }
         .gmc-switch.active::after { transform: translateX(14px); background: #041e49; }
 
-        /* General Dropdowns & Inputs */
         select, input[type="range"] {
             outline: none; font-size: 10px; font-weight: bold; border-radius: 6px; border: 1px solid #3c4043;
             background-color: var(--gmc-card); color: var(--text-primary); padding: 3px 6px;
@@ -127,7 +121,7 @@
         .wl-title { font-weight: bold; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #fff; }
         .wl-actions { display: flex; justify-content: space-between; align-items: center; margin-top: 2px; }
         .wl-btn-play { background: var(--gmc-blue); color: #000; border: none; padding: 2px 6px; border-radius: 4px; font-weight: bold; cursor: pointer; }
-        .wl-btn-del { color: #ff5f56; background: none; border: none; cursor: pointer; font-size: 12px; }
+        .wl-btn-del { color: #ff5f56; background: none; border: none; cursor: pointer; }
     </style>
 </head>
 <body>
@@ -137,11 +131,11 @@
         <div class="gmc-header">
             <div class="gmc-domain-box">
                 <span class="gmc-domain-icon">⚡</span>
-                <span id="gmc-domain">hentaihaven.xxx</span>
+                <span id="gmc-domain">Web Video</span>
             </div>
             
             <div class="gmc-header-actions">
-                <!-- Playback Speed Directly On Card -->
+                <!-- Playback Speed on Card -->
                 <select id="card-speed-select" class="card-speed-select" title="Playback Speed">
                     <option value="0.5">0.5x</option>
                     <option value="0.75">0.75x</option>
@@ -167,7 +161,7 @@
             <button id="btn-play-pause" class="gmc-play-circle" title="Play / Pause (Space)">▶</button>
         </div>
 
-        <!-- Controls Bar Matching Screenshot (|<< 10 [Timeline] 10 >>|) -->
+        <!-- Controls Bar (|<< 10 [Timeline] 10 >>|) -->
         <div class="gmc-controls-bar">
             <button id="btn-prev" class="gmc-transport-btn" title="Previous / Restart">⏮</button>
             <button id="btn-rewind" class="gmc-transport-btn gmc-seek-btn" title="Rewind -10s">⟲ 10</button>
@@ -183,8 +177,17 @@
         </div>
     </div>
 
-    <!-- 2. Settings Rows Underneath (Styled Like Caption Settings in Screenshot) -->
+    <!-- 2. Settings Rows Underneath -->
     <div class="gmc-list">
+        <!-- Turbo Ad-Skipper Toggle -->
+        <div class="gmc-list-row">
+            <div class="gmc-row-label">
+                <span>⚡</span>
+                <span>Turbo Ad-Skipper (16x + Mute)</span>
+            </div>
+            <div id="toggle-adskipper" class="gmc-switch active"></div>
+        </div>
+
         <!-- Global Volume Row -->
         <div class="gmc-list-row">
             <div class="gmc-row-label">
@@ -232,6 +235,15 @@
                 <button id="btn-frame-fwd" class="btn-action-small">⏩ (.)</button>
                 <button id="btn-shot" class="btn-action-small" style="color:var(--accent-cyan);">📸 (S)</button>
             </div>
+        </div>
+
+        <!-- Floating HUD Position Reset -->
+        <div class="gmc-list-row">
+            <div class="gmc-row-label">
+                <span>🧭</span>
+                <span>On-Video Mini-HUD</span>
+            </div>
+            <button id="btn-reset-hud" class="btn-action-small">↺ Reset Position</button>
         </div>
 
         <!-- Auto-Play Next Toggle Row -->

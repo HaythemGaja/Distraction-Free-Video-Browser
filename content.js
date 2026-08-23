@@ -1,4 +1,6 @@
 (function() {
+    // Default Settings
+    let adSkipperEnabled = true;
     let autoNextEnabled = true;
     let autoUnmuteEnabled = true;
     let persistentSpeed = 1.0;
@@ -8,6 +10,7 @@
     let currentEqPreset = 'flat';
     let forceHighResEnabled = true;
     let hasUserInteracted = false;
+    let savedHudPosition = null;
 
     // A-B Repeat Loop State
     let abLoop = { a: null, b: null, active: false };
@@ -27,13 +30,15 @@
     // Multi-Storage Loader
     function loadAllSettings(callback) {
         const keys = [
-            'cs_auto_next', 'cs_auto_unmute', 'cs_playback_speed', 'cs_global_volume',
-            'cs_ambient_glow', 'cs_mini_hud', 'cs_eq_preset', 'cs_force_high_res'
+            'cs_ad_skipper_enabled', 'cs_auto_next', 'cs_auto_unmute', 'cs_playback_speed',
+            'cs_global_volume', 'cs_ambient_glow', 'cs_mini_hud', 'cs_eq_preset',
+            'cs_force_high_res', 'cs_hud_position'
         ];
         
         chrome.storage.local.get(keys, (localData) => {
             chrome.storage.sync.get(keys, (syncData) => {
                 const data = Object.assign({}, syncData, localData);
+                if (data.cs_ad_skipper_enabled !== undefined) adSkipperEnabled = data.cs_ad_skipper_enabled;
                 if (data.cs_auto_next !== undefined) autoNextEnabled = data.cs_auto_next;
                 if (data.cs_auto_unmute !== undefined) autoUnmuteEnabled = data.cs_auto_unmute;
                 if (data.cs_playback_speed) persistentSpeed = parseFloat(data.cs_playback_speed);
@@ -42,6 +47,7 @@
                 if (data.cs_mini_hud !== undefined) miniHudEnabled = data.cs_mini_hud;
                 if (data.cs_eq_preset) currentEqPreset = data.cs_eq_preset;
                 if (data.cs_force_high_res !== undefined) forceHighResEnabled = data.cs_force_high_res;
+                if (data.cs_hud_position) savedHudPosition = data.cs_hud_position;
 
                 if (callback) callback();
             });
@@ -88,9 +94,13 @@
         return vids.find(v => !v.paused && v.readyState > 0) || vids[0] || null;
     }
 
+    // =======================================================
+    // SMART AD CLASSIFIER
+    // =======================================================
     function isAdVideo(v) {
         if (!v) return false;
-        if (document.querySelector('.ad-showing, .ytp-ad-player-overlay')) return true;
+        if (document.querySelector('.ad-showing, .ytp-ad-player-overlay, .ad-interrupting')) return true;
+        
         const adContainer = v.closest('.ad-container, [class*="video-ad"], [id*="player_ad"], [class*="vast-"], [class*="ima-"], .jw-ad, .vjs-ad');
         if (adContainer) return true;
 
@@ -332,7 +342,7 @@
     }
 
     // =======================================================
-    // 6. ON-VIDEO FLOATING MINI-HUD (CHROME GMC MATCHING ICONS)
+    // 6. ALWAYS-ON-TOP DRAGGABLE ON-VIDEO MINI-HUD
     // =======================================================
     function updateMiniHudPlayState() {
         const v = getActiveVideo();
@@ -341,8 +351,8 @@
             const playSvg = hud.querySelector('.sf-play-btn svg');
             if (playSvg) {
                 playSvg.innerHTML = isPaused
-                    ? `<path d="M8 5v14l11-7z"/>` // Play Triangle
-                    : `<path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>`; // Pause Bars
+                    ? `<path d="M8 5v14l11-7z"/>`
+                    : `<path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>`;
             }
             const speedBtn = hud.querySelector('.sf-speed-btn');
             if (speedBtn) speedBtn.innerText = `${persistentSpeed}x`;
@@ -358,73 +368,107 @@
             const container = vid.parentElement;
             if (!container || container.querySelector('.streamflow-mini-hud')) return;
 
-            const pos = window.getComputedStyle(container).position;
-            if (pos === 'static') container.style.position = 'relative';
-
             const hud = document.createElement('div');
             hud.className = 'streamflow-mini-hud';
+            
+            // Fixed position with top-level z-index so it's NEVER blocked by player controls
             hud.style.cssText = `
-                position: absolute; top: 12px; right: 12px; z-index: 2147483640;
-                background: rgba(20, 23, 34, 0.88); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
-                border: 1px solid rgba(138, 180, 248, 0.28); border-radius: 30px;
-                padding: 4px 6px; display: flex; gap: 4px; align-items: center;
-                opacity: 0; transition: opacity 0.25s cubic-bezier(0.16, 1, 0.3, 1), transform 0.25s ease;
-                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-                box-shadow: 0 8px 24px rgba(0,0,0,0.65); user-select: none;
+                position: fixed !important; 
+                top: ${savedHudPosition ? savedHudPosition.top : '20px'} !important; 
+                left: ${savedHudPosition ? savedHudPosition.left : 'auto'} !important; 
+                right: ${savedHudPosition ? 'auto' : '25px'} !important;
+                z-index: 2147483647 !important;
+                background: rgba(18, 21, 30, 0.92) !important; 
+                backdrop-filter: blur(14px) !important; 
+                -webkit-backdrop-filter: blur(14px) !important;
+                border: 1px solid rgba(138, 180, 248, 0.35) !important; 
+                border-radius: 30px !important;
+                padding: 4px 8px !important; 
+                display: flex !important; 
+                gap: 5px !important; 
+                align-items: center !important;
+                opacity: 0.85 !important; 
+                transition: opacity 0.2s ease, box-shadow 0.2s ease !important;
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+                box-shadow: 0 8px 30px rgba(0,0,0,0.75) !important; 
+                user-select: none !important;
+                cursor: grab !important;
             `;
 
-            // Clean Vector SVGs: Play/Pause, Rewind, Forward, Speed, PiP, Screenshot
             hud.innerHTML = `
-                <!-- Play/Pause Circular Vector Button -->
+                <!-- Play/Pause Button -->
                 <button class="sf-hud-btn sf-play-btn" style="background:#a8c7fa; border:none; color:#041e49; width:26px; height:26px; border-radius:50%; display:flex; align-items:center; justify-content:center; cursor:pointer; outline:none; padding:4px; transition:0.15s;" title="Play / Pause (Space)">
                     <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="${vid.paused ? 'M8 5v14l11-7z' : 'M6 19h4V5H6v14zm8-14v14h4V5h-4z'}"/></svg>
                 </button>
 
-                <!-- Rewind -10s SVG -->
+                <!-- Rewind -10s -->
                 <button class="sf-hud-btn sf-rewind-btn" style="background:transparent; border:none; color:#e8eaed; width:26px; height:26px; border-radius:50%; display:flex; align-items:center; justify-content:center; cursor:pointer; outline:none; padding:4px; transition:0.15s;" title="Rewind -10s">
                     <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor"><path d="M12.5 8c-2.65 0-5.05 1-6.9 2.6L2 7v9h9l-3.62-3.62c1.39-1.2 3.16-1.88 5.12-1.88 3.54 0 6.55 2.31 7.6 5.5l2.37-.78C21.08 11.03 17.15 8 12.5 8z"/></svg>
                 </button>
 
-                <!-- Fast Forward +10s SVG -->
+                <!-- Fast Forward +10s -->
                 <button class="sf-hud-btn sf-fwd-btn" style="background:transparent; border:none; color:#e8eaed; width:26px; height:26px; border-radius:50%; display:flex; align-items:center; justify-content:center; cursor:pointer; outline:none; padding:4px; transition:0.15s;" title="Fast Forward +10s">
                     <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor"><path d="M11.5 8c2.65 0 5.05 1 6.9 2.6L22 7v9h-9l3.62-3.62c-1.39-1.2-3.16-1.88-5.12-1.88-3.54 0-6.55 2.31-7.6 5.5l-2.37-.78C2.92 11.03 6.85 8 11.5 8z"/></svg>
                 </button>
 
-                <!-- Playback Speed Selector Pill -->
-                <button class="sf-hud-btn sf-speed-btn" style="background:rgba(0,242,254,0.12); color:#00f2fe; border:1px solid rgba(0,242,254,0.35); padding:2px 8px; border-radius:14px; font-size:11px; font-weight:800; cursor:pointer; outline:none; transition:0.15s;" title="Click to Cycle Playback Speed">${persistentSpeed}x</button>
+                <!-- Speed Selector Pill -->
+                <button class="sf-hud-btn sf-speed-btn" style="background:rgba(0,242,254,0.14); color:#00f2fe; border:1px solid rgba(0,242,254,0.4); padding:2px 8px; border-radius:14px; font-size:11px; font-weight:800; cursor:pointer; outline:none; transition:0.15s;" title="Click to Cycle Speed">${persistentSpeed}x</button>
 
-                <!-- Picture-in-Picture Vector SVG -->
+                <!-- PiP Button -->
                 <button class="sf-hud-btn sf-pip-btn" style="background:transparent; border:none; color:#e8eaed; width:26px; height:26px; border-radius:50%; display:flex; align-items:center; justify-content:center; cursor:pointer; outline:none; padding:4px; transition:0.15s;" title="Picture-in-Picture">
                     <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor"><path d="M19 11h-8v6h8v-6zm4 8V5c0-1.1-.9-2-2-2H3c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2zm-2 0H3V5h18v14z"/></svg>
                 </button>
                 
-                <!-- HD Screenshot Snap Vector SVG -->
-                <button class="sf-hud-btn sf-shot-btn" style="background:transparent; border:none; color:#e8eaed; width:26px; height:26px; border-radius:50%; display:flex; align-items:center; justify-content:center; cursor:pointer; outline:none; padding:4px; transition:0.15s;" title="Take HD Screenshot (S)">
+                <!-- Screenshot Button -->
+                <button class="sf-hud-btn sf-shot-btn" style="background:transparent; border:none; color:#e8eaed; width:26px; height:26px; border-radius:50%; display:flex; align-items:center; justify-content:center; cursor:pointer; outline:none; padding:4px; transition:0.15s;" title="Take Screenshot (S)">
                     <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor"><path d="M12 15.2a3.2 3.2 0 1 0 0-6.4 3.2 3.2 0 0 0 0 6.4zm8-9.2h-3.2L15 4H9L7.2 6H4c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm0 12H4V8h3.9l1.8-2h4.6l1.8 2H20v10z"/></svg>
                 </button>
             `;
 
-            // Hover Display Logic
-            container.addEventListener('mouseenter', () => { hud.style.opacity = '1'; });
-            container.addEventListener('mouseleave', () => { hud.style.opacity = '0'; });
+            // Hover opacity
+            hud.addEventListener('mouseenter', () => { hud.style.opacity = '1'; });
+            hud.addEventListener('mouseleave', () => { hud.style.opacity = '0.85'; });
 
-            // Button Hover Styling
-            hud.querySelectorAll('.sf-hud-btn').forEach(btn => {
-                btn.addEventListener('mouseenter', () => {
-                    if (!btn.classList.contains('sf-speed-btn') && !btn.classList.contains('sf-play-btn')) {
-                        btn.style.backgroundColor = 'rgba(255, 255, 255, 0.12)';
-                        btn.style.color = '#8ab4f8';
-                    }
-                });
-                btn.addEventListener('mouseleave', () => {
-                    if (!btn.classList.contains('sf-speed-btn') && !btn.classList.contains('sf-play-btn')) {
-                        btn.style.backgroundColor = 'transparent';
-                        btn.style.color = '#e8eaed';
-                    }
-                });
+            // ==========================================
+            // DRAG AND DROP ENGINE
+            // ==========================================
+            let isDragging = false;
+            let startX, startY, initLeft, initTop;
+
+            hud.addEventListener('mousedown', (e) => {
+                if (e.target.closest('button, svg, path')) return; // Allow clicking buttons without dragging
+                isDragging = true;
+                startX = e.clientX;
+                startY = e.clientY;
+                const rect = hud.getBoundingClientRect();
+                initLeft = rect.left;
+                initTop = rect.top;
+                hud.style.cursor = 'grabbing';
+                e.preventDefault();
             });
 
-            // Action Handlers
+            window.addEventListener('mousemove', (e) => {
+                if (!isDragging) return;
+                const dx = e.clientX - startX;
+                const dy = e.clientY - startY;
+                const newTop = Math.max(10, Math.min(window.innerHeight - 50, initTop + dy));
+                const newLeft = Math.max(10, Math.min(window.innerWidth - 220, initLeft + dx));
+                
+                hud.style.top = `${newTop}px`;
+                hud.style.left = `${newLeft}px`;
+                hud.style.right = 'auto';
+            });
+
+            window.addEventListener('mouseup', () => {
+                if (isDragging) {
+                    isDragging = false;
+                    hud.style.cursor = 'grab';
+                    savedHudPosition = { top: hud.style.top, left: hud.style.left };
+                    saveSetting('cs_hud_position', savedHudPosition);
+                }
+            });
+
+            // Button actions
             hud.querySelector('.sf-play-btn').addEventListener('click', (e) => {
                 e.stopPropagation();
                 vid.paused ? vid.play() : vid.pause();
@@ -451,7 +495,7 @@
                 persistentSpeed = speeds[nextIdx];
                 saveSetting('cs_playback_speed', persistentSpeed);
                 enforcePersistentMedia();
-                hud.querySelector('.sf-speed-btn').innerText = `${persistentSpeed}x`;
+                updateMiniHudPlayState();
                 showToast(`⚡ Speed: ${persistentSpeed}x`);
             });
 
@@ -465,16 +509,18 @@
                 captureScreenshot();
             });
 
-            container.appendChild(hud);
+            document.body.appendChild(hud);
         });
     }
 
     setInterval(injectMiniHud, 1800);
 
     // =======================================================
-    // 7. ROBUST AD-SKIPPER (<150ms Action)
+    // 7. ULTRA-FAST AD-SKIPPER (16X SPEED + AUTO-MUTE + TOGGLE)
     // =======================================================
     setInterval(() => {
+        if (!adSkipperEnabled) return;
+
         const skipSelectors = [
             '.ytp-ad-skip-button', '.ytp-ad-skip-button-modern', '.ytp-skip-ad-button', 
             'button.ytp-ad-skip-button-modern', '.ytp-ad-skip-button-container button',
@@ -482,6 +528,7 @@
             '.ytp-ad-overlay-close-button', '.ytp-ad-preview-container', '.jw-skip', '.vast-skip-button'
         ];
         
+        // 1. Instant click on any visible skip button (<150ms)
         skipSelectors.forEach(s => {
             document.querySelectorAll(s).forEach(btn => {
                 try {
@@ -491,12 +538,17 @@
             });
         });
         
+        // 2. Maximize video ad speed to 16.0x (Spec Maximum) and mute
         const vids = getAllVideos();
         vids.forEach(v => {
             if (isAdVideo(v)) {
                 v.playbackRate = 16.0;
                 v.muted = true;
                 v.dataset.sfIsAd = "true";
+                // Skip ahead through ad timeline where supported
+                if (v.duration && v.duration > 0 && v.currentTime < v.duration - 0.2) {
+                    try { v.currentTime = v.duration - 0.1; } catch(e) {}
+                }
             } else if (v.dataset.sfIsAd === "true") {
                 delete v.dataset.sfIsAd;
                 v.playbackRate = persistentSpeed;
@@ -559,7 +611,7 @@
         const v = getActiveVideo();
         if (!v) return;
 
-        // Reset Speed to 1.0x: Key 'R'
+        // Reset Speed: Key 'R'
         if ((e.key === 'r' || e.key === 'R') && !e.ctrlKey && !e.metaKey) {
             e.preventDefault();
             persistentSpeed = 1.0;
@@ -633,16 +685,12 @@
             e.preventDefault(); captureScreenshot();
         }
         // Space & Fullscreen
-        else if (e.code === 'Space') { 
-            e.preventDefault(); 
-            v.paused ? v.play() : v.pause(); 
-            updateMiniHudPlayState();
-        }
+        else if (e.code === 'Space') { e.preventDefault(); v.paused ? v.play() : v.pause(); }
         else if (e.code === 'KeyF') { e.preventDefault(); (v.parentElement || v).requestFullscreen(); }
     });
 
     // =======================================================
-    // 11. MESSAGE BRIDGE (FOR CHROME GMC POPUP)
+    // 11. MESSAGE BRIDGE (FOR POPUP)
     // =======================================================
     chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         const v = getActiveVideo();
@@ -667,21 +715,20 @@
                 hasVideo: !!v
             });
         } else if (msg.action === 'TOGGLE_PLAY') {
-            if (v) {
-                v.paused ? v.play() : v.pause();
-                updateMiniHudPlayState();
-            }
+            if (v) v.paused ? v.play() : v.pause();
         } else if (msg.action === 'SEEK_OFFSET') {
             if (v) v.currentTime += msg.offset;
         } else if (msg.action === 'SEEK_EXACT') {
             if (v) v.currentTime = msg.time;
         } else if (msg.action === 'UPDATE_SETTINGS') {
+            adSkipperEnabled = msg.settings.adSkipperEnabled;
             autoNextEnabled = msg.settings.autoNextEnabled;
             autoUnmuteEnabled = msg.settings.autoUnmuteEnabled;
             ambientGlowEnabled = msg.settings.ambientGlowEnabled;
             miniHudEnabled = msg.settings.miniHudEnabled;
             forceHighResEnabled = msg.settings.forceHighResEnabled;
             
+            saveSetting('cs_ad_skipper_enabled', adSkipperEnabled);
             saveSetting('cs_auto_next', autoNextEnabled);
             saveSetting('cs_auto_unmute', autoUnmuteEnabled);
             saveSetting('cs_ambient_glow', ambientGlowEnabled);
@@ -693,17 +740,28 @@
             if (msg.settings.persistentSpeed) {
                 persistentSpeed = msg.settings.persistentSpeed;
                 saveSetting('cs_playback_speed', persistentSpeed);
+                enforcePersistentMedia();
                 updateMiniHudPlayState();
             }
             if (msg.settings.globalVolume !== undefined) {
                 globalVolume = msg.settings.globalVolume;
                 saveSetting('cs_global_volume', globalVolume);
+                enforcePersistentMedia();
             }
-            enforcePersistentMedia();
             if (msg.settings.eqPreset) {
                 applyEqPreset(msg.settings.eqPreset);
             }
             sendResponse({ status: 'ok' });
+        } else if (msg.action === 'RESET_HUD_POS') {
+            savedHudPosition = null;
+            chrome.storage.local.remove('cs_hud_position');
+            chrome.storage.sync.remove('cs_hud_position');
+            document.querySelectorAll('.streamflow-mini-hud').forEach(hud => {
+                hud.style.top = '20px';
+                hud.style.left = 'auto';
+                hud.style.right = '25px';
+            });
+            showToast('🧭 HUD Position Reset to Top-Right');
         } else if (msg.action === 'TRIGGER_PIP') {
             if (v) document.pictureInPictureElement ? document.exitPictureInPicture() : v.requestPictureInPicture();
         } else if (msg.action === 'TRIGGER_FOCUS') {
