@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "CinemaStream Pro - Media Suite",
-  "version": "2.0.0",
-  "description": "Pure media player suite with persistent speed memory, instant ad-skipping, continuous PiP, and Watch Later queue.",
+  "name": "StreamFlow Pro - Smart Video & Speed Suite",
+  "version": "2.1.0",
+  "description": "Smart video controller with persistent playback speed memory, instant ad-skipping, continuous PiP, and Watch Later queue.",
   "permissions": [
     "storage",
     "activeTab",
@@ -23,6 +23,6 @@
   ],
   "action": {
     "default_popup": "popup.html",
-    "default_title": "CinemaStream Media Suite"
+    "default_title": "StreamFlow Pro"
   }
 }
